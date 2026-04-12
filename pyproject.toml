@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ga4-remote-mcp"
+version = "0.1.0"
+description = "Remote Streamable HTTP MCP server for Google Analytics 4"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "google-analytics-data==0.20.0",
+    "google-analytics-admin==0.27.0",
+    "google-auth~=2.40",
+    "mcp>=1.24.0",
+    "google-adk>=1.24.1",
+    "httpx>=0.28.1",
+    "starlette>=0.40.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+    "httpx>=0.28.1",
+]
+
+[project.scripts]
+ga4-remote-mcp = "ga4_remote_mcp.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src", "tests"]
+extend-exclude = [
+    "src/ga4_remote_mcp/ga/tools",
+    "src/ga4_remote_mcp/ga/server.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m \"not integration\""
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: requires real GA / credentials (run with pytest -m integration or GA4MCP_RUN_INTEGRATION=1)",
+]
+
+[tool.pyright]
+include = ["src/ga4_remote_mcp"]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"

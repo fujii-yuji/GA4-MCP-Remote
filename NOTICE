@@ -1,0 +1,11 @@
+Remote GA4 MCP Server
+Copyright 2025 The ga4-remote-mcp authors
+
+This product includes software developed at Google (Apache License 2.0),
+forked from the google-analytics-mcp project:
+  https://github.com/googleanalytics/google-analytics-mcp
+
+Vendor copy location: src/ga4_remote_mcp/ga/tools/ (and related GA tool code),
+adapted with import path changes to ga4_remote_mcp.ga.
+
+See LICENSE (Apache-2.0) in repository root when distributed as OSS.
