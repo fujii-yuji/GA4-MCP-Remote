@@ -41,7 +41,6 @@ line-length = 100
 src = ["src", "tests"]
 extend-exclude = [
     "src/ga4_remote_mcp/ga/tools",
-    "src/ga4_remote_mcp/ga/server.py",
 ]
 
 [tool.ruff.lint]

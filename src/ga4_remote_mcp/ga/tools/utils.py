@@ -29,14 +29,14 @@ def _get_package_version_with_fallback():
     Falls back to 'unknown' if the version can't be resolved.
     """
     try:
-        return metadata.version("analytics-mcp")
-    except:
+        return metadata.version("ga4-remote-mcp")
+    except metadata.PackageNotFoundError:
         return "unknown"
 
 
 # Client information that adds a custom user agent to all API requests.
 _CLIENT_INFO = ClientInfo(
-    user_agent=f"analytics-mcp/{_get_package_version_with_fallback()}"
+    user_agent=f"ga4-remote-mcp/{_get_package_version_with_fallback()}"
 )
 
 # Read-only scope for Analytics Admin API and Analytics Data API.
