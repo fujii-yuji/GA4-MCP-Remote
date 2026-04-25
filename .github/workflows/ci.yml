@@ -35,15 +35,16 @@ jobs:
       - run: pytest --tb=short -q
 
   typecheck:
+    name: typecheck (informational)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]" pyright
-      - run: pyright src/ga4_remote_mcp/
+      - name: Run pyright
+        run: pyright src/ga4_remote_mcp/ || echo "::warning::pyright found type errors (non-blocking — upstream GA tools have known issues)"
 
   docker:
     runs-on: ubuntu-latest
