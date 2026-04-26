@@ -7,12 +7,12 @@ An unofficial Remote MCP (HTTP) server forked from Google's official GA4 MCP ([g
 
 ## What You Can Do
 
-Build AI chatbots and automated reports using your GA4 data, combined with tools like Dify, n8n, and Slack.
+Build AI chatbots and automated reports from your GA4 data, using tools like Dify, n8n, and Slack.
 
 | What you can do | Example |
 | --- | --- |
-| Share across your team | Set up one server and everyone shares the same AI analytics environment — no per-PC installation |
-| Automate recurring reports | Build a workflow that posts "AI-generated weekly comparison report" to Slack |
+| Share across your team | Set up one server and the whole team shares the same AI analytics environment — no per-PC installation needed |
+| Automate recurring reports | Build a workflow that posts an AI-generated weekly comparison report to Slack |
 | Analytics without GA4 access | Team members can ask questions via a Slack bot or internal chat — no GA4 login required. You can also mask sensitive data via system prompts |
 | Ask GA4 questions in natural language | Just ask "Analyze by traffic source" or "Analyze the past 6 months excluding seasonal trends" and get answers |
 
@@ -24,7 +24,7 @@ Build AI chatbots and automated reports using your GA4 data, combined with tools
 | Connection | Local (stdio) | Remote (HTTP) |
 | Where you can use it | Runs on the PC where it's installed | Anywhere HTTP can reach — Dify, n8n, Slack bots, etc. |
 | Team use | Each person installs separately | One server shared by the whole team |
-| Automation | Possible within the installed PC | Runs from the cloud, so you can use it with n8n or Dify workflows |
+| Automation | Only on the PC where it's installed | Runs in the cloud, so you can use it in n8n or Dify workflows |
 
 > stdio (standard I/O) connections are not supported. This server is HTTP-only.
 
@@ -37,8 +37,8 @@ Which sections to read depends on your role.
 
 | Your role | What to read |
 | --- | --- |
-| User (marketer, director, etc.) You received a URL and token; you're setting up Dify / n8n | [User Guide](#user-guide) → [Dify Setup](#dify-setup) or [n8n Setup](#n8n-setup) |
-| Admin (engineer) You're deploying the server and issuing URLs and tokens | [Admin Guide](#admin-guide-server-setup) → also review the User Guide |
+| User (marketer, director, etc.) — you received a URL and token and are setting up Dify / n8n | [User Guide](#user-guide) → [Dify Setup](#dify-setup) or [n8n Setup](#n8n-setup) |
+| Admin (engineer) — you deploy the server and hand out URLs and tokens | [Admin Guide](#admin-guide-server-setup) → also review the User Guide |
 
 
 ---
@@ -54,7 +54,7 @@ Which sections to read depends on your role.
 | MCP Server URL | The connection URL for Dify / n8n. | Get from your admin |
 | Bearer Token | An authentication string (like a password) | Get from your admin |
 | GA4 Property ID | The numeric ID of your analytics property. | Check in GA4 |
-| AI Model API Key | You need an AI available via API to analyze data retrieved from MCP. Prepare whichever is easiest to use — Gemini, Claude, GPT, etc. | Sign up and obtain yourself, or ask your admin. Free APIs may use your data for training, so they are not recommended for business use. |
+| AI Model API Key | You need access to an AI model (Gemini, Claude, GPT, etc.) via API so it can analyze data from MCP. Pick whichever works best for you. | Get one yourself or ask your admin. Free-tier APIs may use your data for training, so they are not recommended for business use. |
 
 
 ---
@@ -69,10 +69,10 @@ Register via Tools → MCP → Add MCP Server (HTTP) in Dify.
 
 1. In Dify's Tools → MCP → select Add MCP Server (HTTP)
 2. Enter the Server URL from your admin
-3. Fill in Name and Server ID (you can freely choose the name, but don't change the Server ID after creation)
+3. Fill in Name and Server ID (the name is up to you, but don't change the Server ID after creation)
 4. Select Auth → Header and set the following:
    - Name: `Authorization`
-   - Value: `Bearer <token>` (the string `Bearer` followed by one space before the token value)
+   - Value: `Bearer <token>` (type the word `Bearer`, then a space, then paste your token)
 5. Save and verify that the tool list appears
 6. Try calling tools from a chat or workflow
 
@@ -122,7 +122,7 @@ Node names and settings may change over time — check the latest information.
 ## Admin Guide (Server Setup)
 
 > This section is for engineers who deploy and operate the server.
-> If you're a marketer or PdM rather than an engineer, you can still accomplish this by having AI read this content and collaborating with it. No specialized knowledge is required.
+> If you're a marketer or PdM rather than an engineer, you can still get this done — just feed this page to an AI assistant and work through the steps together. No specialized knowledge is required.
 
 ### Authentication Overview
 
@@ -181,7 +181,7 @@ After deployment, get the public URL via `gcloud run services describe` and shar
 
 ### Operations Notes
 
-- Graceful shutdown: Uvicorn starts with `timeout_graceful_shutdown=30` seconds. For Kubernetes, set `terminationGracePeriodSeconds` to at least 45–60
+- Graceful shutdown: Uvicorn is configured with `timeout_graceful_shutdown=30` seconds. For Kubernetes, set `terminationGracePeriodSeconds` to at least 45–60
 - Logging & personal data: Structured logs may include client IP. Retention, access control, and GDPR compliance are the deployer's responsibility
 
 ---
