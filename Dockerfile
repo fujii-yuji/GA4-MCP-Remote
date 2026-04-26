@@ -14,6 +14,8 @@ RUN pip install --upgrade pip && pip install .
 FROM base AS runtime
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin/ga4-remote-mcp /usr/local/bin/ga4-remote-mcp
+# Apache-2.0 §4(d): retain LICENSE and NOTICE in distributed artifacts.
+COPY LICENSE NOTICE /app/
 USER appuser
 EXPOSE 8080
 ENV GA4MCP_PORT=8080
