@@ -122,6 +122,7 @@ Node names and settings may change over time — check the latest information.
 ## Admin Guide (Server Setup)
 
 > This section is for engineers who deploy and operate the server.
+> If you're a marketer or PdM rather than an engineer, you can still accomplish this by having AI read this content and collaborating with it. No specialized knowledge is required.
 
 ### Authentication Overview
 
