@@ -108,7 +108,9 @@ Dify が Bearer の不一致で HTTP 401 を受け取ると、OAuth メタデー
 
 ## n8n での設定
 
-n8n では以下のノードで MCP サーバーに接続します。
+n8n では **AI Agent ノード**に **AI モデル（Chat Model）** と **MCP Client** を接続して使います。
+
+![n8n AI Agent + MCP Client の構成例](./docs/images/n8n-ai-agent-mcp-client.png)
 
 - **MCP Client ノード** — ワークフローのステップとしてツールを実行
 - **MCP Client Tool ノード** — AI エージェントにツールとして渡す

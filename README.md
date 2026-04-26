@@ -108,7 +108,9 @@ When Dify receives HTTP 401 from a Bearer mismatch, it tries to discover OAuth m
 
 ## n8n Setup
 
-n8n provides these nodes for connecting to MCP servers:
+In n8n, connect an **AI Model (Chat Model)** and **MCP Client** to the **AI Agent node**.
+
+![n8n AI Agent + MCP Client setup](./docs/images/n8n-ai-agent-mcp-client.png)
 
 - **MCP Client node** — execute tools as workflow steps
 - **MCP Client Tool node** — provide tools to an AI agent
