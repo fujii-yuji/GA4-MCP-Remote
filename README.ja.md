@@ -1,6 +1,5 @@
-[English](./README.md) | 日本語
-
 # ga4-remote-mcp
+# [English](./README.md) | 日本語
 
 Google 公式の GA4 MCP（[google-analytics-mcp](https://github.com/googleanalytics/google-analytics-mcp)）をリモート MCP（HTTP）化した、非公式プロジェクトです。
 
