@@ -219,5 +219,20 @@ async def call_mcp_tool(name: str, arguments: dict) -> list[mcp_types.Content]:
         ]
     except Exception as e:
         code, msg = map_exception_to_code(e)
+        if code == "internal_error":
+            # `msg` is intentionally generic for the client; preserve the real
+            # exception detail in the server log so operators can still debug.
+            log_line(
+                {
+                    "request_id": rid,
+                    "client_identifier": client_identifier_var.get(),
+                    "tool_name": name,
+                    "property_id": prop_norm or "-",
+                    "level": "error",
+                    "event": "unhandled_tool_exception",
+                    "error_class": type(e).__name__,
+                    "error_message": str(e),
+                }
+            )
         emit(status="error", error_code=code, property_id=prop_norm)
         return [mcp_types.TextContent(type="text", text=tool_error_payload(code=code, message=msg))]
