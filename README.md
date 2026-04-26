@@ -8,23 +8,25 @@ An **unofficial** Remote MCP (HTTP) server forked from Google's official GA4 MCP
 
 Build **AI chatbots and automated reports** using your GA4 data, combined with tools like Dify, n8n, and Slack.
 
-| Use case | Example |
-|---|---|
-| **Ask GA4 questions in natural language** | Ask a Dify chatbot "How many sessions last week?" or "Show me traffic sources" and get instant answers |
-| **Automate recurring reports** | Build an n8n workflow that posts key metrics to Slack every Monday morning |
+
+| What you can do | Example |
+| --- | --- |
+| Share across your team | Set up one server and everyone shares the same AI analytics environment — no per-PC installation |
+| **Automate recurring reports** | Build a workflow that posts "AI-generated weekly comparison report" to Slack |
 | **Analytics without GA4 access** | Team members can ask questions via a Slack bot or internal chat — no GA4 login required |
-| **Share across your team** | Set up one server and everyone shares the same AI analytics environment — no per-PC installation |
+| **Ask GA4 questions in natural language** | Just ask "Analyze by traffic source" or "Analyze the past 6 months excluding seasonal trends" and get answers |
+
 
 ### How This Differs from the Official MCP
 
-| | Google Official GA4 MCP | ga4-remote-mcp (this project) |
-|---|---|---|
-| Connection | Local (stdio) | Remote (HTTP) |
-| Where you can use it | Only on the PC where it's installed | Anywhere HTTP can reach — Dify, n8n, Slack bots, etc. |
-| Team use | Each person installs separately | One server shared by the whole team |
-| Automation | Difficult | Schedule with n8n or Dify workflows |
 
-> **stdio (standard I/O) connections are not supported.** This server is HTTP-only.
+| | Google Official GA4 MCP | ga4-remote-mcp (this project) |
+| --- | --- | --- |
+| Connection | Local (stdio) | Remote (HTTP) |
+| Where you can use it | Runs on the PC where it's installed | Anywhere HTTP can reach — Dify, n8n, Slack bots, etc. |
+| Team use | Each person installs separately | One server shared by the whole team |
+| Automation | Possible within the installed PC | Runs from the cloud, so you can use it with n8n or Dify workflows |
+
 
 ---
 
@@ -32,10 +34,12 @@ Build **AI chatbots and automated reports** using your GA4 data, combined with t
 
 **Which sections to read depends on your role.**
 
+
 | Your role | What to read |
-|---|---|
-| **User** (marketer, director, etc.)<br>You received a URL and token; you're setting up Dify / n8n | [User Guide](#user-guide) → [Dify Setup](#dify-setup) or [n8n Setup](#n8n-setup) → [Common Issues](#common-issues) |
-| **Admin** (engineer)<br>You're deploying the server and issuing URLs and tokens | [Admin Guide](#admin-guide-server-setup) → also review the User Guide |
+| --- | --- |
+| **User** (marketer, director, etc.) You received a URL and token; you're setting up Dify / n8n | [User Guide](#user-guide) → [Dify Setup](#dify-setup) or [n8n Setup](#n8n-setup) |
+| **Admin** (engineer) You're deploying the server and issuing URLs and tokens | [Admin Guide](#admin-guide-server-setup) → also review the User Guide |
+
 
 ---
 
@@ -45,16 +49,14 @@ Build **AI chatbots and automated reports** using your GA4 data, combined with t
 
 ### What You Need to Prepare
 
+
 | What to prepare | Description | Who provides it |
-|---|---|---|
-| **MCP Server URL** | The connection URL for Dify / n8n. e.g. `https://analytics-mcp.example.com/mcp` | Get from your admin |
+| --- | --- | --- |
+| **MCP Server URL** | The connection URL for Dify / n8n. | Get from your admin |
 | **Bearer Token** | An authentication string (like a password) | Get from your admin |
-| **GA4 Property ID** | The numeric ID of your analytics property. e.g. `123456789` | Get from your admin |
-| **AI Model API Key** | The AI that powers the chatbot's reasoning. Choose from OpenAI (GPT), Google (Gemini), Anthropic (Claude), etc. | Sign up and obtain yourself (or ask your admin) |
+| **GA4 Property ID** | The numeric ID of your analytics property. | Check in GA4 |
+| **AI Model API Key** | You need an AI available via API to analyze data retrieved from MCP. Prepare whichever is easiest to use — Gemini, Claude, GPT, etc. | Sign up and obtain yourself, or ask your admin. Free APIs may use your data for training, so they are not recommended for business use. |
 
-Once you have all four, you're ready to configure Dify or n8n.
-
-> **AI Model API**: In Dify, configure it under "Model Provider"; in n8n, use an LLM node. The AI model decides which tools to call and how to explain results.
 
 ---
 
@@ -62,91 +64,59 @@ Once you have all four, you're ready to configure Dify or n8n.
 
 Register via **Tools → MCP → Add MCP Server (HTTP)** in Dify.
 
-> Dify supports HTTP transport MCP servers only. This server is compatible.
-> Reference: [Using MCP Tools (Dify official)](https://docs.dify.ai/en/use-dify/build/mcp)
-
-![Dify — Add MCP Server (HTTP)](./docs/images/dify-add-mcp-server.png)
+Dify — Add MCP Server (HTTP)
 
 ### Steps
 
-1. Go to **Tools → MCP** → **Add MCP Server (HTTP)**
+1. In **Dify's Tools → MCP** → select **Add MCP Server (HTTP)**
 2. Enter the **Server URL** from your admin
-   - Example: `https://analytics-mcp.example.com/mcp`
-   - Make sure it ends with `/mcp`
-3. Fill in **Name** and **Server ID** (don't change the Server ID after creation)
-4. **Set the Bearer auth header** (if you received a token from the admin)
+3. Fill in **Name** and **Server ID** (you can freely choose the name, but don't change the Server ID after creation)
+4. Select **Auth → Header** and set the following:
    - Name: `Authorization`
-   - Value: `Bearer <token>` (one space after `Bearer`, then the token)
-   - If you don't see a header field, your Dify version may be too old. This feature was [merged in Sep 2025](https://github.com/langgenius/dify/pull/24760) — consider updating
+   - Value: `Bearer <token>` (the string `Bearer` followed by one space before the token value)
 5. Save and verify that the tool list appears
-6. Test calling tools from an agent or workflow
+6. Try calling tools from a chat or workflow
 
 ### Agent System Prompt (Recommended)
 
-To improve AI accuracy, set up a **system prompt**:
+To improve AI accuracy, set up a **system prompt**.
 
-- Copy-ready prompt: [docs/dify-system-prompt-ga4-mcp-tools.md](./docs/dify-system-prompt-ga4-mcp-tools.md)
-- Includes tool names, argument formats, and guardrails to reduce errors and hallucination
-- Customize property IDs and organization-specific wording on the Dify side
+- System prompt example: [docs/dify-system-prompt-ga4-mcp-tools.md](./docs/dify-system-prompt-ga4-mcp-tools.md)
+- You can customize it freely, but use the example as a reference.
+- We recommend adding information specific to your property or organization so the AI can answer relevant questions.
 
 ### Common Dify Errors
 
 #### "Failed to discover OAuth metadata from server"
 
-When Dify receives HTTP 401 from a Bearer mismatch, it tries to discover OAuth metadata. This server uses Bearer only (no OAuth), so this error appears.
-
-**Usually caused by the token not reaching the server correctly.**
-
-1. Check that `Authorization` value is `Bearer <token>` (one space after `Bearer`)
-2. Ask your admin to set `GA4MCP_BEARER_FAILURE_HTTP_STATUS=403` to prevent Dify from entering the OAuth flow
+1. Check that `Authorization` value is `Bearer <token>`
 
 #### Bearer Returns 403
 
-- Format must be `Bearer ` + one space + token (not `Bearer` alone or token alone)
-- When copying from terminal, the trailing `%` is a zsh display artifact — don't include it
-- Base64 trailing `=` IS part of the token — don't remove it
+- Check that `Authorization` value is `Bearer <token>`
+- If there's a `%` at the end, it's a copy error. The trailing `%` is not part of the token
+- The trailing `=` IS part of the token — don't remove it
 
 ---
 
 ## n8n Setup
 
-In n8n, connect an **AI Model (Chat Model)** and **MCP Client** to the **AI Agent node**.
-
-![n8n AI Agent + MCP Client setup](./docs/images/n8n-ai-agent-mcp-client.png)
-
-- **MCP Client node** — execute tools as workflow steps
-- **MCP Client Tool node** — provide tools to an AI agent
-
-Reference: [MCP Client node](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-langchain.mcpClient/) / [MCP Client Tool node](https://docs.n8n.io/integrations/builtin/cluster-nodes/sub-nodes/n8n-nodes-langchain.toolmcp/)
+*Node names and settings may change over time — check the latest information.*
 
 ### Steps
 
-1. Add **MCP Client** or **MCP Client Tool** to your workflow
-2. Set **Server URL** to the URL from your admin
-   - Example: `https://analytics-mcp.example.com/mcp`
-3. **Set Bearer auth**: select Bearer in Credentials and enter the token, or use header auth with `Authorization: Bearer <token>`
-4. Verify that the tool list loads and the agent can call GA4 tools
-5. On failure, share the HTTP status code and error message with your admin
+1. Set up Credentials with Bearer and enter the token.
+2. Set up Credentials for the AI API connection.
+3. Connect **MCP Client** and an AI model (Chat Model) to an **AI Agent node** and place them in the workflow.
+4. Configure **MCP Client** with Credentials from step 1, and enter the **Server URL** from your admin.
+5. Configure the AI model (Chat Model) with Credentials from step 2.
+   System prompt example: [docs/dify-system-prompt-ga4-mcp-tools.md](./docs/dify-system-prompt-ga4-mcp-tools.md)
+6. **Set up user prompt and system prompt on the AI Agent node.**
+7. Configure other nodes as needed (e.g., receiving input from Slack) and test.
 
-### Notes
 
-- If connection errors persist, try **updating n8n** to the latest stable version (Streamable HTTP support is evolving)
-- Use **MCP Client (Tool) nodes** — don't try to replicate MCP JSON-RPC with the HTTP Request node
-- When using an AI agent, you need **AI model API credentials** (OpenAI, Vertex AI, etc.) in addition to MCP
 
 ---
-
-## Common Issues
-
-| Symptom | What to check |
-|---|---|
-| **401 Unauthorized** | Does your Bearer token match the server? Is the format `Authorization: Bearer <token>`? |
-| **403** | Token format error (extra newlines, `%`). See [Common Dify Errors](#common-dify-errors) above |
-| **Dify: Failed to discover OAuth metadata** | Bearer not reaching the server. See [Common Dify Errors](#common-dify-errors) above |
-| **421 or connection refused** | `GA4MCP_ALLOWED_HOSTS` misconfiguration → ask your admin |
-| **Tools appear but property is rejected** | Your property ID may not be in the server's allowlist → ask your admin |
-| **ready OK but GA4 fails** | Google auth, API enablement, or SA permissions → ask your admin |
-| **n8n + Gemini: `zod_to_gemini_parameters` error** | Update n8n and the server. Pass `property_id` as a JSON string `"123456789"` |
 
 ---
 
@@ -156,25 +126,22 @@ Reference: [MCP Client node](https://docs.n8n.io/integrations/builtin/core-nodes
 
 ### Authentication Overview
 
+
 | Auth purpose | Where to set | How |
-|---|---|---|
+| --- | --- | --- |
 | **MCP server → GA4** | MCP server env vars | `GOOGLE_APPLICATION_CREDENTIALS` pointing to a service account JSON. On Cloud Run, prefer Workload Identity / ADC |
-| **Dify / n8n → MCP server** | Both server and client | Server: `GA4MCP_AUTH_MODE=bearer` + `GA4MCP_BEARER_TOKEN`. Client: `Authorization: Bearer <same token>`. `GA4MCP_AUTH_MODE=none` for trusted networks only |
-| **AI model (LLM)** | Dify / n8n side | API keys in Dify's "Model Provider" or n8n's LLM node (independent from this server) |
+| **Dify / n8n → MCP server** | Both server and client | Server: `GA4MCP_AUTH_MODE=bearer` + `GA4MCP_BEARER_TOKEN`. Client: `Authorization: Bearer <same token>`. |
+| **AI model (LLM)** | Dify / n8n side | API keys in Dify's "Model Provider" or n8n's LLM node |
+
 
 ### Before Starting the Server
 
 1. **Start the server** and make it reachable via HTTPS (recommended) or HTTP
-2. **Set environment variables**. Copy `.env.example` to `.env` and fill in values
+2. **Set environment variables**.
    - `GA4MCP_BEARER_TOKEN`: generate with `./scripts/generate-bearer-token.sh` (server won't start with bearer mode and empty token)
    - `GA4MCP_BEARER_FAILURE_HTTP_STATUS=403`: recommended for Dify integration
    - `GA4MCP_ALLOWED_PROPERTY_IDS`: allowed property IDs (comma-separated)
-3. **In production, set `GA4MCP_ALLOWED_HOSTS`** to match the Host header sent by clients (DNS rebinding protection; without it, all connections may fail)
-
-### Health Checks
-
-- `GET /health` → success if server is alive
-- `GET /ready` → confirms config loaded OK only (does not verify GA4 API connectivity — that's only known on first tool execution)
+3. **In production, set `GA4MCP_ALLOWED_HOSTS`** (DNS rebinding protection; without it, all connections may fail)
 
 ### Docker Example
 
@@ -191,31 +158,23 @@ docker run --rm -p 8080:8080 \
   ga4-remote-mcp
 ```
 
-### Cloud Run Deployment
+### Cloud Run Example
 
 Full instructions: [docs/deploy-cloud-run.md](./docs/deploy-cloud-run.md) / [scripts/deploy-cloud-run.sh](./scripts/deploy-cloud-run.sh)
 
+
 | Category | Requirement |
-|---|---|
+| --- | --- |
 | **GCP** | Target project, billing enabled, APIs (Cloud Run, Cloud Build, Artifact Registry, Secret Manager) |
 | **Runtime SA** | Service account for Cloud Run with GA4 property read access. Prefer Workload Identity / ADC over JSON keys |
 | **Env vars** | `GA4MCP_ENV=production`, `GA4MCP_ALLOWED_PROPERTY_IDS`, `GA4MCP_ALLOWED_HOSTS` for production |
 | **Bearer (recommended)** | `GA4MCP_AUTH_MODE=bearer` + token in Secret Manager. `GA4MCP_BEARER_FAILURE_HTTP_STATUS=403` recommended for Dify |
 | **Deploy** | Run `./scripts/deploy-cloud-run.sh` with `GCP_PROJECT_ID`, `GA4MCP_ALLOWED_PROPERTY_IDS`, `CLOUD_RUN_SERVICE_ACCOUNT` (recommended), and `GA4MCP_BEARER_SECRET_NAME` for bearer |
 
+
 After deployment, get the public URL via `gcloud run services describe` and share `https://<host>/mcp` with users.
 
 ---
-
-## Official Documentation Reference
-
-| Item | Details |
-|---|---|
-| **Dify menu** | **Tools → MCP → Add MCP Server (HTTP)**. Matches this README |
-| **Dify & HTTP** | Dify supports HTTP transport MCP only. This server is HTTP-only, so it's compatible |
-| **Dify & Bearer** | Custom HTTP headers for MCP were merged Sep 2025. Older Dify versions may lack this feature → update recommended |
-| **n8n nodes** | MCP Client / MCP Client Tool documented with Bearer/Header/OAuth2 support |
-| **n8n & transport** | Streamable HTTP support is evolving. If connections fail, try a newer stable version |
 
 ---
 
