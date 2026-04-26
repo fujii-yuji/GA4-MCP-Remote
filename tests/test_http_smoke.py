@@ -58,3 +58,21 @@ def test_bearer_rejects_with_configurable_status(monkeypatch: pytest.MonkeyPatch
         r = client.post("/mcp", json={})
         assert r.status_code == 403
         assert r.json().get("error_code") == "authentication_failed"
+
+
+def test_bearer_accepts_matching_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GA4MCP_AUTH_MODE", "bearer")
+    monkeypatch.setenv("GA4MCP_BEARER_TOKEN", "expected-secret")
+    clear_settings_cache()
+    with TestClient(build_app()) as client:
+        r = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "method": "ping", "id": 1},
+            headers={"Authorization": "Bearer expected-secret"},
+        )
+        # Authorised requests must reach the MCP transport — never the auth
+        # middleware's authentication_failed body.
+        assert r.status_code != 401
+        assert r.status_code != 403
+        if r.headers.get("content-type", "").startswith("application/json"):
+            assert r.json().get("error_code") != "authentication_failed"

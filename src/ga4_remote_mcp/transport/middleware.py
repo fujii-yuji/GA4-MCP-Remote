@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import json
 import uuid
 
@@ -14,14 +15,24 @@ from ga4_remote_mcp.errors.normalize import tool_error_payload
 
 
 def _bearer_matches_authorization_header(header_value: str, secret: str) -> bool:
-    """Accept Secret Manager / client quirks: trim, case-insensitive ``Bearer``, inner spaces."""
+    """Accept Secret Manager / client quirks: trim, case-insensitive ``Bearer``, inner spaces.
+
+    Token comparison uses :func:`hmac.compare_digest` to mitigate timing attacks
+    on the configured bearer secret.
+    """
     h = (header_value or "").strip()
     if not h:
         return False
     parts = h.split(None, 1)
     if len(parts) != 2 or parts[0].lower() != "bearer":
         return False
-    return parts[1].strip() == (secret or "").strip()
+    expected = (secret or "").strip()
+    if not expected:
+        # Defense in depth: settings validation already rejects empty secret in
+        # bearer mode; never let a request authenticate against an empty secret.
+        return False
+    provided = parts[1].strip()
+    return hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8"))
 
 
 def _get_header(scope: Scope, key: str) -> str | None:
