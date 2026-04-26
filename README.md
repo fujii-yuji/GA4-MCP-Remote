@@ -13,7 +13,7 @@ Build **AI chatbots and automated reports** using your GA4 data, combined with t
 | --- | --- |
 | Share across your team | Set up one server and everyone shares the same AI analytics environment — no per-PC installation |
 | **Automate recurring reports** | Build a workflow that posts "AI-generated weekly comparison report" to Slack |
-| **Analytics without GA4 access** | Team members can ask questions via a Slack bot or internal chat — no GA4 login required |
+| **Analytics without GA4 access** | Team members can ask questions via a Slack bot or internal chat — no GA4 login required. You can also mask sensitive data via system prompts |
 | **Ask GA4 questions in natural language** | Just ask "Analyze by traffic source" or "Analyze the past 6 months excluding seasonal trends" and get answers |
 
 
@@ -64,7 +64,7 @@ Build **AI chatbots and automated reports** using your GA4 data, combined with t
 
 Register via **Tools → MCP → Add MCP Server (HTTP)** in Dify.
 
-Dify — Add MCP Server (HTTP)
+![Dify — Add MCP Server (HTTP)](./docs/images/dify-add-mcp-server.png)
 
 ### Steps
 
@@ -100,6 +100,8 @@ To improve AI accuracy, set up a **system prompt**.
 ---
 
 ## n8n Setup
+
+![n8n AI Agent + MCP Client setup](./docs/images/n8n-ai-agent-mcp-client.png)
 
 *Node names and settings may change over time — check the latest information.*
 
