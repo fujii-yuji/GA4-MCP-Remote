@@ -1,6 +1,5 @@
-English | [日本語](./README.ja.md)
-
 # ga4-remote-mcp
+# English | [日本語](./README.ja.md)
 
 An unofficial Remote MCP (HTTP) server forked from Google's official GA4 MCP ([google-analytics-mcp](https://github.com/googleanalytics/google-analytics-mcp)).
 
