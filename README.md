@@ -65,6 +65,8 @@ Register via **Tools → MCP → Add MCP Server (HTTP)** in Dify.
 > Dify supports HTTP transport MCP servers only. This server is compatible.
 > Reference: [Using MCP Tools (Dify official)](https://docs.dify.ai/en/use-dify/build/mcp)
 
+![Dify — Add MCP Server (HTTP)](./docs/images/dify-add-mcp-server.png)
+
 ### Steps
 
 1. Go to **Tools → MCP** → **Add MCP Server (HTTP)**

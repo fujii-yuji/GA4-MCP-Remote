@@ -65,6 +65,8 @@ Dify の **Tools → MCP → Add MCP Server (HTTP)** から登録します。（
 > Dify は HTTP トランスポートの MCP のみに対応しています。このサーバーはその前提と一致します。
 > 参照: [Using MCP Tools（Dify 公式）](https://docs.dify.ai/en/use-dify/build/mcp)
 
+![Dify の MCP サーバー追加画面](./docs/images/dify-add-mcp-server.png)
+
 ### 手順
 
 1. **Tools → MCP** で **Add MCP Server (HTTP)** を選ぶ
