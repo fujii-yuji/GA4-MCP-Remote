@@ -112,8 +112,8 @@ To improve AI accuracy, set up a **system prompt**.
 3. Connect **MCP Client** and an AI model (Chat Model) to an **AI Agent node** and place them in the workflow.
 4. Configure **MCP Client** with Credentials from step 1, and enter the **Server URL** from your admin.
 5. Configure the AI model (Chat Model) with Credentials from step 2.
-   System prompt example: [docs/dify-system-prompt-ga4-mcp-tools.md](./docs/dify-system-prompt-ga4-mcp-tools.md)
 6. **Set up user prompt and system prompt on the AI Agent node.**
+   System prompt example: [docs/dify-system-prompt-ga4-mcp-tools.md](./docs/dify-system-prompt-ga4-mcp-tools.md)
 7. Configure other nodes as needed (e.g., receiving input from Slack) and test.
 
 
