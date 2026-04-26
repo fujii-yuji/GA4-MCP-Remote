@@ -20,6 +20,35 @@ REGION="${GCP_REGION:-asia-northeast1}"
 SERVICE="${CLOUD_RUN_SERVICE:-ga4-remote-mcp}"
 ALLOWED="${GA4MCP_ALLOWED_PROPERTY_IDS:?GA4MCP_ALLOWED_PROPERTY_IDS をセット（例: 123456789 または 111,222）}"
 
+# Production-auth guard
+# This script always sets GA4MCP_ENV=production, which now refuses to start
+# without bearer auth (see src/ga4_remote_mcp/config/settings.py
+# validate_production_auth). Catch the missing secret early — before any
+# gcloud calls — so the operator gets a clear error here instead of a
+# crash loop on Cloud Run.
+if [[ -z "${GA4MCP_BEARER_SECRET_NAME:-}" ]]; then
+  cat >&2 <<MSG
+ERROR: GA4MCP_BEARER_SECRET_NAME is not set.
+
+This script deploys with GA4MCP_ENV=production, which requires
+GA4MCP_AUTH_MODE=bearer + a Secret-Manager-backed GA4MCP_BEARER_TOKEN.
+
+Create the secret first, e.g.:
+
+    gcloud secrets create ga4-remote-mcp-bearer \\
+      --replication-policy=automatic \\
+      --project="\$GCP_PROJECT_ID"
+    printf '%s' "<your-token>" | gcloud secrets versions add \\
+      ga4-remote-mcp-bearer --data-file=- --project="\$GCP_PROJECT_ID"
+
+Then re-run with:
+
+    export GA4MCP_BEARER_SECRET_NAME=ga4-remote-mcp-bearer
+    ./scripts/deploy-cloud-run.sh
+MSG
+  exit 1
+fi
+
 ENV_FILE="$(mktemp)"
 trap 'rm -f "$ENV_FILE"' EXIT
 
@@ -34,11 +63,10 @@ GA4MCP_ALLOW_ALL_PROPERTIES: "false"
 EOF
 
 # Bearer + Dify 向け: 不一致時はデフォルト 403（401 だと OAuth メタデータ探索に寄りやすい）
-if [[ -n "${GA4MCP_BEARER_SECRET_NAME:-}" ]]; then
-  echo "GA4MCP_AUTH_MODE: bearer" >>"$ENV_FILE"
-  BF_STATUS="${GA4MCP_BEARER_FAILURE_HTTP_STATUS:-403}"
-  echo "GA4MCP_BEARER_FAILURE_HTTP_STATUS: \"${BF_STATUS}\"" >>"$ENV_FILE"
-fi
+# ガードで GA4MCP_BEARER_SECRET_NAME 必須化済みのため常に bearer モードで設定する。
+echo "GA4MCP_AUTH_MODE: bearer" >>"$ENV_FILE"
+BF_STATUS="${GA4MCP_BEARER_FAILURE_HTTP_STATUS:-403}"
+echo "GA4MCP_BEARER_FAILURE_HTTP_STATUS: \"${BF_STATUS}\"" >>"$ENV_FILE"
 
 echo "Project=$PROJECT_ID Region=$REGION Service=$SERVICE"
 
@@ -60,11 +88,10 @@ if [[ -n "${CLOUD_RUN_SERVICE_ACCOUNT:-}" ]]; then
   DEPLOY_ARGS+=(--service-account="$CLOUD_RUN_SERVICE_ACCOUNT")
 fi
 
-if [[ -n "${GA4MCP_BEARER_SECRET_NAME:-}" ]]; then
-  DEPLOY_ARGS+=(
-    --update-secrets="GA4MCP_BEARER_TOKEN=${GA4MCP_BEARER_SECRET_NAME}:latest"
-  )
-fi
+# GA4MCP_BEARER_SECRET_NAME はガードで必須化済み。
+DEPLOY_ARGS+=(
+  --update-secrets="GA4MCP_BEARER_TOKEN=${GA4MCP_BEARER_SECRET_NAME}:latest"
+)
 
 "${DEPLOY_ARGS[@]}"
 

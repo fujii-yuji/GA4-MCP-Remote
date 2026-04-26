@@ -81,6 +81,22 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def validate_production_auth(self) -> Settings:
+        # Public deployments of this server (Cloud Run + --allow-unauthenticated
+        # is the documented path) must require a bearer token. Refuse to start
+        # in production without it so an operator misconfiguration does not
+        # silently expose GA4 data over the network.
+        if self.env == "production" and self.auth_mode == "none":
+            msg = (
+                "GA4MCP_AUTH_MODE=none is not allowed when GA4MCP_ENV=production. "
+                "Set GA4MCP_AUTH_MODE=bearer and provide GA4MCP_BEARER_TOKEN "
+                "(scripts/deploy-cloud-run.sh wires this from "
+                "GA4MCP_BEARER_SECRET_NAME via Secret Manager)."
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
     def validate_production_allowlist(self) -> Settings:
         if self.env == "production" and not self.allow_all_properties:
             ids = self.parsed_allowed_property_ids()
