@@ -10,9 +10,20 @@ from google.api_core import exceptions as google_exceptions
 
 from ga4_remote_mcp.context import request_id_var
 
+# Generic message returned to clients for any exception that does not match a
+# known upstream category. The original exception detail must never appear in
+# the client-facing payload — callers are expected to log the underlying error
+# server-side (see ``ga.coordinator`` and ``transport.app``).
+INTERNAL_ERROR_MESSAGE = "Internal server error"
+
 
 def map_exception_to_code(exc: BaseException) -> tuple[str, str]:
-    """Return (error_code, message) for an upstream exception."""
+    """Return ``(error_code, client_message)`` for an upstream exception.
+
+    For unmapped exceptions the message is intentionally generic
+    (:data:`INTERNAL_ERROR_MESSAGE`) so that internal stack traces / settings
+    validation strings / SDK error chatter are not leaked to MCP clients.
+    """
     if isinstance(exc, google_exceptions.ResourceExhausted):
         return "quota_exceeded", str(exc)
     if isinstance(exc, google_exceptions.Unauthenticated):
@@ -27,7 +38,7 @@ def map_exception_to_code(exc: BaseException) -> tuple[str, str]:
         return "timeout", str(exc)
     if isinstance(exc, asyncio.CancelledError):
         return "timeout", "cancelled"
-    return "internal_error", str(exc)
+    return "internal_error", INTERNAL_ERROR_MESSAGE
 
 
 def tool_error_payload(
