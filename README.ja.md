@@ -13,7 +13,7 @@ GA4 のデータを使った AI チャットボットや自動レポートを、
 | --- | --- |
 | チームで共有 | サーバー 1 台を立てれば、メンバー全員が同じ AI 分析環境を使える。PC ごとのインストール不要 |
 | 定期レポートの自動化 | 「週末に先週との変化をAIがレポート作って Slack に投稿」するワークフローを作る |
-| GA4 の権限がない人でも分析 | Slack ボットや社内チャットから自然言語で聞けるので、GA4 にログインできなくても使える。見せたくないデータはシステムプロンプトでマスクすることも可能 |
+| GA4 の権限がない人でも分析 | Slack ボットや社内チャットから自然言語で聞けるので、GA4 にログインできなくても使える。サーバーから読み取れる GA4 プロパティは `GA4MCP_ALLOWED_PROPERTY_IDS` で管理者がサーバー側で制限する（[セキュリティに関する注意](#セキュリティに関する注意) 参照） |
 | 自然言語で GA4 に質問 | 「流入元別の分析をして」や「季節変動を除いた過去半年の分析をして」と聞くだけで回答が返る |
 
 
@@ -166,10 +166,36 @@ docker run --rm -p 8080:8080 \
 | GCP | デプロイ先プロジェクト、請求の有効化、API（Cloud Run、Cloud Build、Artifact Registry、Secret Manager） |
 | ランタイム SA | Cloud Run に紐づけるサービスアカウント。GA4 プロパティに閲覧権限、必要に応じて Analytics Admin API が使えること。JSON 鍵よりも Workload Identity / ADC 推奨 |
 | 環境変数 | `GA4MCP_ENV=production`、`GA4MCP_ALLOWED_PROPERTY_IDS`、本番では `GA4MCP_ALLOWED_HOSTS` |
-| Bearer（推奨） | `GA4MCP_AUTH_MODE=bearer` + Secret Manager にトークン格納。Dify 連携では `GA4MCP_BEARER_FAILURE_HTTP_STATUS=403` 推奨 |
-| デプロイ操作 | `./scripts/deploy-cloud-run.sh` を実行。`GCP_PROJECT_ID`、`GA4MCP_ALLOWED_PROPERTY_IDS`、`CLOUD_RUN_SERVICE_ACCOUNT`（推奨）、Bearer 利用時は `GA4MCP_BEARER_SECRET_NAME` を export |
+| Bearer（本番では必須） | `GA4MCP_AUTH_MODE=bearer` + Secret Manager にトークン格納。`GA4MCP_ENV=production` + `GA4MCP_AUTH_MODE=none` の組み合わせは起動を拒否します。Dify 連携では `GA4MCP_BEARER_FAILURE_HTTP_STATUS=403` 推奨 |
+| デプロイ操作 | `./scripts/deploy-cloud-run.sh` を実行。`GCP_PROJECT_ID`、`GA4MCP_ALLOWED_PROPERTY_IDS`、`CLOUD_RUN_SERVICE_ACCOUNT`（推奨）、`GA4MCP_BEARER_SECRET_NAME`（必須・未設定の場合スクリプトが起動前に失敗する）を export |
 
 デプロイ後、`gcloud run services describe` で公開 URL を確認し、`https://＜ホスト＞/mcp` を利用者に共有します。
+
+
+---
+
+## セキュリティに関する注意
+
+このサーバーはパブリックインターネット上にデプロイされる前提で設計されています（推奨経路は Cloud Run + `--allow-unauthenticated`）。**信頼境界はサーバー側で担保**しており、エージェントのプロンプトではありません。
+
+### データを守っている層
+
+| レイヤー | 内容 | 設定 |
+| --- | --- | --- |
+| 認証 | `Authorization: Bearer <token>` を `hmac.compare_digest` で定数時間比較 | `GA4MCP_AUTH_MODE=bearer` + `GA4MCP_BEARER_TOKEN` |
+| 認可 | リクエスト単位で GA4 プロパティ許可リストを検証。リスト外のプロパティは Google に到達する前に拒否 | `GA4MCP_ALLOWED_PROPERTY_IDS` |
+| 本番ガード | `GA4MCP_ENV=production` + `GA4MCP_AUTH_MODE=none` の組み合わせは起動を拒否するため、認証なしの公開デプロイは事故では発生しない | 起動時に強制 |
+| ネットワーク | 本番では `Host` ヘッダ許可リストで DNS リバインディング対策 | `GA4MCP_ALLOWED_HOSTS` |
+| エラー応答 | 内部例外はクライアントには汎用的な `internal_error` にマップし、詳細はサーバーログにのみ出力 | `errors/normalize.py` で強制 |
+
+### データを守っていないもの
+
+- **エージェントやシステムプロンプトはセキュリティ境界ではありません。** MCP ツールに渡された入力は、このサーバーが完全な権限で実行します。利用者（またはエージェントが呼ぶ別ツール）はモデルにプロンプト上の制約を無視させられるため、「システムプロンプトでプロパティやフィールドを隠す」運用に頼らないでください。代わりに `GA4MCP_ALLOWED_PROPERTY_IDS` を使ってください。
+- **エンドユーザーに渡した Bearer トークンは、許可リスト内すべてのプロパティへの直接アクセスを渡したのと同じ意味になります。** 強い分離が必要な場合はテナントごとに別のトークン（Cloud Run サービスを分けるか、少なくとも許可リストを分ける）を発行してください。
+
+### 脆弱性の報告
+
+[SECURITY.md](./SECURITY.md) を参照してください。
 
 
 ---

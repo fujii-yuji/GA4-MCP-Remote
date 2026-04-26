@@ -12,7 +12,7 @@ Build AI chatbots and automated reports from your GA4 data, using tools like Dif
 | --- | --- |
 | Share across your team | Set up one server and the whole team shares the same AI analytics environment — no per-PC installation needed |
 | Automate recurring reports | Build a workflow that posts an AI-generated weekly comparison report to Slack |
-| Analytics without GA4 access | Team members can ask questions via a Slack bot or internal chat — no GA4 login required. You can also mask sensitive data via system prompts |
+| Analytics without GA4 access | Team members can ask questions via a Slack bot or internal chat — no GA4 login required. The admin controls which GA4 properties this server is allowed to read via `GA4MCP_ALLOWED_PROPERTY_IDS` (see [Security Notice](#security-notice)) |
 | Ask GA4 questions in natural language | Just ask "Analyze by traffic source" or "Analyze the past 6 months excluding seasonal trends" and get answers |
 
 
@@ -164,10 +164,36 @@ Full instructions: [docs/deploy-cloud-run.md](./docs/deploy-cloud-run.md) / [scr
 | GCP | Target project, billing enabled, APIs (Cloud Run, Cloud Build, Artifact Registry, Secret Manager) |
 | Runtime SA | Service account for Cloud Run with GA4 property read access. Prefer Workload Identity / ADC over JSON keys |
 | Env vars | `GA4MCP_ENV=production`, `GA4MCP_ALLOWED_PROPERTY_IDS`, `GA4MCP_ALLOWED_HOSTS` for production |
-| Bearer (recommended) | `GA4MCP_AUTH_MODE=bearer` + token in Secret Manager. `GA4MCP_BEARER_FAILURE_HTTP_STATUS=403` recommended for Dify |
-| Deploy | Run `./scripts/deploy-cloud-run.sh` with `GCP_PROJECT_ID`, `GA4MCP_ALLOWED_PROPERTY_IDS`, `CLOUD_RUN_SERVICE_ACCOUNT` (recommended), and `GA4MCP_BEARER_SECRET_NAME` for bearer |
+| Bearer (required in production) | `GA4MCP_AUTH_MODE=bearer` + token in Secret Manager. The server refuses to start with `GA4MCP_ENV=production` + `GA4MCP_AUTH_MODE=none`. `GA4MCP_BEARER_FAILURE_HTTP_STATUS=403` recommended for Dify |
+| Deploy | Run `./scripts/deploy-cloud-run.sh` with `GCP_PROJECT_ID`, `GA4MCP_ALLOWED_PROPERTY_IDS`, `CLOUD_RUN_SERVICE_ACCOUNT` (recommended), and `GA4MCP_BEARER_SECRET_NAME` (required; the script fails fast without it) |
 
 After deployment, get the public URL via `gcloud run services describe` and share `https://<host>/mcp` with users.
+
+
+---
+
+## Security Notice
+
+This server is designed to be deployed on the public internet (the documented path is Cloud Run with `--allow-unauthenticated`). The trust boundary is **enforced server-side**, not in agent prompts.
+
+### What protects your data
+
+| Layer | What it does | Knob |
+| --- | --- | --- |
+| Authentication | Constant-time bearer-token check (`hmac.compare_digest`) on `Authorization: Bearer <token>` | `GA4MCP_AUTH_MODE=bearer` + `GA4MCP_BEARER_TOKEN` |
+| Authorization | Per-request GA4 property allowlist; requests for any other property are refused before they reach Google | `GA4MCP_ALLOWED_PROPERTY_IDS` |
+| Production guard | The server refuses to start with `GA4MCP_ENV=production` + `GA4MCP_AUTH_MODE=none`, so an unauthenticated public deployment cannot happen by accident | enforced at startup |
+| Network hardening | `Host`-header allowlist for DNS-rebinding protection in production | `GA4MCP_ALLOWED_HOSTS` |
+| Error responses | Internal exceptions are mapped to a generic `internal_error` for the client; full detail is only logged server-side | enforced in `errors/normalize.py` |
+
+### What does NOT protect your data
+
+- **Agent / system prompts are not a security boundary.** Anything passed through the MCP tools is executed by this server with full credentials. A user (or another tool the agent calls) can ask the model to ignore prompt-level restrictions, so do not rely on system prompts to "hide" properties or fields. Use `GA4MCP_ALLOWED_PROPERTY_IDS` instead.
+- **A bearer token shared with end users is equivalent to giving them direct access to every property in the allowlist.** Issue per-tenant tokens — separate Cloud Run services, or at minimum separate property allowlists — when stronger isolation is required.
+
+### Reporting a vulnerability
+
+See [SECURITY.md](./SECURITY.md).
 
 
 ---
