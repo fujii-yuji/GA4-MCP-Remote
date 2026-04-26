@@ -43,23 +43,18 @@ Build **AI chatbots and automated reports** using your GA4 data, combined with t
 
 > **An admin (engineer) sets up the server and gives you the info below. The setup steps may look complex, but you can work through them one by one with help from AI assistants like ChatGPT or Gemini.**
 
-### What You'll Get from the Admin
+### What You Need to Prepare
 
-| What you receive | Description | Example |
+| What to prepare | Description | Who provides it |
 |---|---|---|
-| **MCP Server URL** | The connection URL for Dify / n8n | `https://analytics-mcp.example.com/mcp` |
-| **Bearer Token** | An authentication string (like a password) | `dG9rZW4xMjM0NTY3OA==` |
-| **GA4 Property ID** | The numeric ID of your analytics property | `123456789` |
+| **MCP Server URL** | The connection URL for Dify / n8n. e.g. `https://analytics-mcp.example.com/mcp` | Get from your admin |
+| **Bearer Token** | An authentication string (like a password) | Get from your admin |
+| **GA4 Property ID** | The numeric ID of your analytics property. e.g. `123456789` | Get from your admin |
+| **AI Model API Key** | The AI that powers the chatbot's reasoning. Choose from OpenAI (GPT), Google (Gemini), Anthropic (Claude), etc. | Sign up and obtain yourself (or ask your admin) |
 
-With these three pieces of information, you're ready to configure Dify or n8n.
+Once you have all four, you're ready to configure Dify or n8n.
 
-### AI Model for Your Agent (Dify / n8n Side)
-
-To build a chatbot in Dify or n8n, you need an **AI model (LLM) API** separate from this MCP.
-
-- In Dify, configure it under "Model Provider"; in n8n, use an LLM node
-- Choose from OpenAI (GPT), Google (Gemini), Anthropic (Claude), etc.
-- The AI model decides which tools to call and how to explain results
+> **AI Model API**: In Dify, configure it under "Model Provider"; in n8n, use an LLM node. The AI model decides which tools to call and how to explain results.
 
 ---
 
