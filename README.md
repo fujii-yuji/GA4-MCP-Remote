@@ -2,6 +2,7 @@
 # English | [日本語](./README.ja.md)
 
 An unofficial Remote MCP (HTTP) server forked from Google's official GA4 MCP ([google-analytics-mcp](https://github.com/googleanalytics/google-analytics-mcp)).
+Built on top of the official MCP. Data is only sent to the destinations you explicitly configured (your MCP server, your LLM provider, etc.) and is never sent to any other external service.
 
 
 ## What You Can Do

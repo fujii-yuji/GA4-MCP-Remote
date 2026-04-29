@@ -3,6 +3,7 @@
 # ga4-remote-mcp
 
 Google 公式の GA4 MCP（[google-analytics-mcp](https://github.com/googleanalytics/google-analytics-mcp)）をリモート MCP（HTTP）化した、非公式プロジェクトです。
+公式 MCP をベースにしており、データはユーザーが明確に指定した MCP サーバーや LLM などにのみ送信され、指定していない外部に送信されることはありません。
 
 
 ## このツールでできること
