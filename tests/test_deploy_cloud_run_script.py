@@ -42,11 +42,7 @@ def _make_stub_bin(tmp_path: pathlib.Path) -> pathlib.Path:
     stub_bin = tmp_path / "stub-bin"
     stub_bin.mkdir()
     gcloud_stub = stub_bin / "gcloud"
-    gcloud_stub.write_text(
-        "#!/usr/bin/env bash\n"
-        f"echo '{STUB_GCLOUD_MARKER}' >&2\n"
-        "exit 127\n"
-    )
+    gcloud_stub.write_text(f"#!/usr/bin/env bash\necho '{STUB_GCLOUD_MARKER}' >&2\nexit 127\n")
     gcloud_stub.chmod(0o755)
     return stub_bin
 
