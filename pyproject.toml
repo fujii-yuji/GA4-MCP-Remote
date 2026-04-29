@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ga4-remote-mcp"
 version = "0.1.0"
 description = "Remote Streamable HTTP MCP server for Google Analytics 4"
-readme = "README.md"
+readme = "README.en.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 dependencies = [
