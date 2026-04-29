@@ -64,7 +64,7 @@ We prefer **coordinated disclosure**. After a fix lands on `main` we will publis
 
 ## Hardening checklist for operators
 
-If you deploy this server, also read the [Security Notice](./README.md#security-notice) in the README. The short version:
+If you deploy this server, also read the [Security Notice](./README.en.md#security-notice) in the README. The short version:
 
 - Use `GA4MCP_AUTH_MODE=bearer` for any deployment reachable from the internet. The server refuses to start with `GA4MCP_ENV=production` + `GA4MCP_AUTH_MODE=none`.
 - Generate the bearer token with `./scripts/generate-bearer-token.sh` and store it in Secret Manager (or an equivalent) — never in git.
