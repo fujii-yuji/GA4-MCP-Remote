@@ -27,9 +27,7 @@ class _FakeAdminClient:
     def __init__(self) -> None:
         self.request: admin_v1beta.ListKeyEventsRequest | None = None
 
-    async def list_key_events(
-        self, request: admin_v1beta.ListKeyEventsRequest
-    ) -> _Pager:
+    async def list_key_events(self, request: admin_v1beta.ListKeyEventsRequest) -> _Pager:
         self.request = request
         return _Pager(
             [
