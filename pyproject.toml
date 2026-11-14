@@ -13,9 +13,9 @@ dependencies = [
     "google-analytics-data==0.21.0",
     "google-analytics-admin==0.28.0",
     "google-auth~=2.40",
-    # mcp 2 drops Server.list_tools / call_tool and renames Tool.inputSchema.
-    # This server still uses the 1.x low-level API.
-    "mcp>=1.24.0,<2",
+    # Low-level handlers use the mcp 2 constructor API (on_list_tools / on_call_tool).
+    "mcp>=2.3.0,<3",
+    "jsonschema>=4.20.0",
     "google-adk>=1.24.1",
     "httpx>=0.28.1",
     "starlette>=0.40.0",

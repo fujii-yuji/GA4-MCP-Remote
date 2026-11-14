@@ -20,9 +20,11 @@ import asyncio
 import json
 import time
 
+import jsonschema
 from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.mcp_tool.conversion_utils import adk_to_mcp_tool_type
 from mcp import types as mcp_types
+from mcp.server import ServerRequestContext
 from mcp.server.lowlevel import Server
 
 from ga4_remote_mcp import __version__
@@ -75,34 +77,62 @@ INSTRUCTIONS = (
     "google-analytics-mcp. Read-only GA4 access via official Data/Admin APIs."
 )
 
-app = Server(
-    name="ga4-remote-mcp",
-    version=__version__,
-    instructions=INSTRUCTIONS,
-)
+
+def _normalize_input_schema(tool: mcp_types.Tool) -> None:
+    schema = dict(tool.input_schema or {})
+    if schema == {}:
+        schema = {"type": "object", "properties": {}}
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for prop in properties.values():
+            if isinstance(prop, dict) and "anyOf" in prop and prop.get("type") == "null":
+                del prop["type"]
+    tool.input_schema = schema
+
 
 mcp_tools = [adk_to_mcp_tool_type(tool) for tool in tools]
 for tool in mcp_tools:
-    if tool.inputSchema == {}:
-        tool.inputSchema = {"type": "object", "properties": {}}
-    for prop in tool.inputSchema.get("properties", {}).values():
-        if "anyOf" in prop and prop.get("type") == "null":
-            del prop["type"]
+    _normalize_input_schema(tool)
 
 
-@app.list_tools()
-async def list_tools() -> list[mcp_types.Tool]:
+def _visible_tools() -> list[mcp_types.Tool]:
     settings = get_settings()
     if settings.enable_realtime:
         return mcp_tools
     return [t for t in mcp_tools if t.name != "run_realtime_report"]
 
 
-@app.call_tool()
-async def call_mcp_tool(name: str, arguments: dict) -> list[mcp_types.Content]:
+def _text_result(text: str, *, is_error: bool = False) -> mcp_types.CallToolResult:
+    return mcp_types.CallToolResult(
+        content=[mcp_types.TextContent(type="text", text=text)],
+        is_error=is_error,
+    )
+
+
+async def list_tools(
+    _ctx: ServerRequestContext,
+    _params: mcp_types.PaginatedRequestParams | None,
+) -> mcp_types.ListToolsResult:
+    return mcp_types.ListToolsResult(tools=_visible_tools())
+
+
+async def call_mcp_tool(
+    _ctx: ServerRequestContext,
+    params: mcp_types.CallToolRequestParams,
+) -> mcp_types.CallToolResult:
+    name = params.name
+    arguments = params.arguments or {}
     settings = get_settings()
     rid = request_id_var.get()
     t0 = time.perf_counter()
+
+    listed = next((tool for tool in _visible_tools() if tool.name == name), None)
+    if listed is not None:
+        try:
+            jsonschema.validate(instance=arguments, schema=listed.input_schema)
+        except jsonschema.ValidationError as exc:
+            # mcp 1 validated here, before the handler, and did not emit a tool log.
+            return _text_result(f"Input validation error: {exc.message}", is_error=True)
 
     def emit(
         *,
@@ -130,67 +160,52 @@ async def call_mcp_tool(name: str, arguments: dict) -> list[mcp_types.Content]:
 
     if name not in tool_map:
         emit(status="error", error_code="invalid_request")
-        return [
-            mcp_types.TextContent(
-                type="text",
-                text=tool_error_payload(
-                    code="invalid_request",
-                    message=f"Tool '{name}' not implemented by this server.",
-                ),
+        return _text_result(
+            tool_error_payload(
+                code="invalid_request",
+                message=f"Tool '{name}' not implemented by this server.",
             )
-        ]
+        )
 
     if name == "run_realtime_report" and not settings.enable_realtime:
         emit(status="error", error_code="tool_disabled")
-        return [
-            mcp_types.TextContent(
-                type="text",
-                text=tool_error_payload(
-                    code="tool_disabled",
-                    message="run_realtime_report is disabled by GA4MCP_ENABLE_REALTIME",
-                ),
+        return _text_result(
+            tool_error_payload(
+                code="tool_disabled",
+                message="run_realtime_report is disabled by GA4MCP_ENABLE_REALTIME",
             )
-        ]
+        )
 
     prop_norm: str | None = None
     if name in TOOLS_REQUIRING_PROPERTY:
         prop_norm = normalize_property_id(arguments.get("property_id"))
         if not prop_norm:
             emit(status="error", error_code="invalid_property")
-            return [
-                mcp_types.TextContent(
-                    type="text",
-                    text=tool_error_payload(
-                        code="invalid_property",
-                        message="property_id is required",
-                    ),
+            return _text_result(
+                tool_error_payload(
+                    code="invalid_property",
+                    message="property_id is required",
                 )
-            ]
+            )
         if not property_allowed(prop_norm, settings):
             emit(status="error", error_code="unauthorized_property", property_id=prop_norm)
-            return [
-                mcp_types.TextContent(
-                    type="text",
-                    text=tool_error_payload(
-                        code="unauthorized_property",
-                        message="property_id is not allowed by server policy",
-                        extra={"property_id": prop_norm},
-                    ),
+            return _text_result(
+                tool_error_payload(
+                    code="unauthorized_property",
+                    message="property_id is not allowed by server policy",
+                    extra={"property_id": prop_norm},
                 )
-            ]
+            )
 
     ok, err_code, mutated = validate_tool_arguments(name, arguments, settings)
     if not ok:
         emit(status="error", error_code=err_code or "invalid_request", property_id=prop_norm)
-        return [
-            mcp_types.TextContent(
-                type="text",
-                text=tool_error_payload(
-                    code=err_code or "invalid_request",
-                    message="Request failed guardrail validation",
-                ),
+        return _text_result(
+            tool_error_payload(
+                code=err_code or "invalid_request",
+                message="Request failed guardrail validation",
             )
-        ]
+        )
 
     exec_args = mutated if mutated is not None else arguments
     tool = tool_map[name]
@@ -208,15 +223,10 @@ async def call_mcp_tool(name: str, arguments: dict) -> list[mcp_types.Content]:
             adk_tool_response = await asyncio.wait_for(_run(), timeout=timeout_s)
         response_text = json.dumps(adk_tool_response, indent=2)
         emit(status="ok", property_id=prop_norm)
-        return [mcp_types.TextContent(type="text", text=response_text)]
+        return _text_result(response_text)
     except TimeoutError:
         emit(status="error", error_code="timeout", property_id=prop_norm)
-        return [
-            mcp_types.TextContent(
-                type="text",
-                text=tool_error_payload(code="timeout", message="Tool execution timed out"),
-            )
-        ]
+        return _text_result(tool_error_payload(code="timeout", message="Tool execution timed out"))
     except Exception as e:
         code, msg = map_exception_to_code(e)
         if code == "internal_error":
@@ -235,4 +245,13 @@ async def call_mcp_tool(name: str, arguments: dict) -> list[mcp_types.Content]:
                 }
             )
         emit(status="error", error_code=code, property_id=prop_norm)
-        return [mcp_types.TextContent(type="text", text=tool_error_payload(code=code, message=msg))]
+        return _text_result(tool_error_payload(code=code, message=msg))
+
+
+app = Server(
+    name="ga4-remote-mcp",
+    version=__version__,
+    instructions=INSTRUCTIONS,
+    on_list_tools=list_tools,
+    on_call_tool=call_mcp_tool,
+)

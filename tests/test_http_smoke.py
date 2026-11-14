@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -62,6 +64,68 @@ def test_mcp_accepts_post() -> None:
         r = client.post("/mcp", json={"jsonrpc": "2.0", "method": "ping", "id": 1})
         # Streamable HTTP returns JSON-RPC error or session response — not 404
         assert r.status_code != 404
+
+
+def _mcp_json(response) -> dict:
+    """Stateless Streamable HTTP answers with a single SSE `data:` event."""
+    for line in response.text.splitlines():
+        if line.startswith("data: "):
+            return json.loads(line.removeprefix("data: "))
+    raise AssertionError(response.text)
+
+
+def test_mcp_lists_tools_and_validates_call_input() -> None:
+    """mcp 2 registers tools through constructor handlers, not decorators."""
+    headers = {
+        "Accept": "application/json, text/event-stream",
+        "Content-Type": "application/json",
+    }
+    with TestClient(build_app()) as client:
+        init = client.post(
+            "/mcp",
+            headers=headers,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {},
+                    "clientInfo": {"name": "smoke", "version": "0"},
+                },
+            },
+        )
+        listed = client.post(
+            "/mcp",
+            headers=headers,
+            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+        )
+        called = client.post(
+            "/mcp",
+            headers=headers,
+            json={
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "run_report", "arguments": {}},
+            },
+        )
+
+    assert init.status_code == 200
+    assert _mcp_json(init)["result"]["serverInfo"]["name"] == "ga4-remote-mcp"
+    names = {tool["name"] for tool in _mcp_json(listed)["result"]["tools"]}
+    assert names == {
+        "get_account_summaries",
+        "list_google_ads_links",
+        "get_property_details",
+        "list_property_annotations",
+        "get_custom_dimensions_and_metrics",
+        "run_report",
+        "run_realtime_report",
+    }
+    body = _mcp_json(called)["result"]
+    assert body["isError"] is True
+    assert "property_id" in body["content"][0]["text"]
 
 
 def test_mcp_get_still_enforces_dns_rebinding(monkeypatch: pytest.MonkeyPatch) -> None:
