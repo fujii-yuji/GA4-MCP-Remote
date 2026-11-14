@@ -173,6 +173,20 @@ def _apply_funnel_next_action_limit(
     return True, None
 
 
+def _validate_minute_ranges(ranges: object) -> tuple[bool, str | None]:
+    """Reject a realtime minute window that cannot be sent as MinuteRange."""
+    if ranges is None:
+        return True, None
+    if not isinstance(ranges, list):
+        return False, "minute_ranges must be a list"
+    if len(ranges) > 2:
+        return False, "minute_ranges accepts at most 2 items"
+    for index, item in enumerate(ranges):
+        if not isinstance(item, dict):
+            return False, f"minute_ranges[{index}] must be an object"
+    return True, None
+
+
 def validate_tool_arguments(
     tool_name: str,
     arguments: dict[str, Any],
@@ -189,6 +203,11 @@ def validate_tool_arguments(
 
     if tool_name == "run_realtime_report" and not settings.enable_realtime:
         return False, "tool_disabled", None, "run_realtime_report is disabled"
+
+    if tool_name == "run_realtime_report":
+        ok, msg = _validate_minute_ranges(args.get("minute_ranges"))
+        if not ok:
+            return False, "invalid_request", None, msg
 
     if tool_name in _DATE_RANGE_TOOLS:
         dr = args.get("date_ranges")
