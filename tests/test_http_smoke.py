@@ -225,6 +225,38 @@ def test_bearer_rejects_with_configurable_status(monkeypatch: pytest.MonkeyPatch
         assert r.json().get("error_code") == "authentication_failed"
 
 
+def test_bearer_rejects_wrong_token_without_echoing_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A wrong bearer must fail at the HTTP middleware, not only in the helper.
+
+    The response must not echo the presented token or the configured secret.
+    Token matching is case-sensitive; only the scheme is not.
+    """
+    secret = "expected-secret-token"
+    presented = "wrong-token-ZZZ"
+    monkeypatch.setenv("GA4MCP_AUTH_MODE", "bearer")
+    monkeypatch.setenv("GA4MCP_BEARER_TOKEN", secret)
+    clear_settings_cache()
+    with TestClient(build_app()) as client:
+        wrong = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "method": "ping", "id": 1},
+            headers={"Authorization": f"Bearer {presented}"},
+        )
+        different_case = client.post(
+            "/mcp",
+            json={},
+            headers={"Authorization": "Bearer Expected-Secret-Token"},
+        )
+    assert wrong.status_code == 401
+    assert wrong.json().get("error_code") == "authentication_failed"
+    assert presented not in wrong.text
+    assert secret not in wrong.text
+    assert different_case.status_code == 401
+    assert secret not in different_case.text
+
+
 def test_bearer_accepts_matching_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GA4MCP_AUTH_MODE", "bearer")
     monkeypatch.setenv("GA4MCP_BEARER_TOKEN", "expected-secret")
