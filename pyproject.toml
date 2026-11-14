@@ -10,9 +10,9 @@ readme = "README.en.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 dependencies = [
-    "google-analytics-data==0.21.0",
-    "google-analytics-admin==0.28.0",
-    "google-auth~=2.40",
+    "google-analytics-data==0.23.3",
+    "google-analytics-admin==0.30.2",
+    "google-auth~=2.62",
     # Low-level handlers use the mcp 2 constructor API (on_list_tools / on_call_tool).
     "mcp>=2.3.0,<3",
     "jsonschema>=4.20.0",
