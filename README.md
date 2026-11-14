@@ -189,10 +189,12 @@ docker run --rm -p 8080:8080 \
 | レイヤー | 内容 | 設定 |
 | --- | --- | --- |
 | 認証 | `Authorization: Bearer <token>` を `hmac.compare_digest` で定数時間比較 | `GA4MCP_AUTH_MODE=bearer` + `GA4MCP_BEARER_TOKEN` |
-| 認可 | リクエスト単位で GA4 プロパティ許可リストを検証。リスト外のプロパティは Google に到達する前に拒否 | `GA4MCP_ALLOWED_PROPERTY_IDS` |
+| 認可 | リクエスト単位で GA4 プロパティ許可リストを検証。リスト外のプロパティは Google に到達する前に拒否。`get_account_summaries` も許可したプロパティだけを返す | `GA4MCP_ALLOWED_PROPERTY_IDS` |
 | 本番ガード | `GA4MCP_ENV=production` + `GA4MCP_AUTH_MODE=none` の組み合わせは起動を拒否するため、認証なしの公開デプロイは事故では発生しない | 起動時に強制 |
 | ネットワーク | 本番では `Host` ヘッダ許可リストで DNS リバインディング対策 | `GA4MCP_ALLOWED_HOSTS` |
 | エラー応答 | 内部例外はクライアントには汎用的な `internal_error` にマップし、詳細はサーバーログにのみ出力 | `errors/normalize.py` で強制 |
+
+`get_account_summaries` は、`GA4MCP_ALLOWED_PROPERTY_IDS` にあるプロパティだけを返します。許可したプロパティが残らないアカウントは応答に含めません。許可リストが空で、`GA4MCP_ALLOW_ALL_PROPERTIES` が `true` でないとき（未設定または `false`）は、空の一覧を返し、Google へ一覧を取りに行きません。`GA4MCP_ALLOW_ALL_PROPERTIES=true` のときは、サービスアカウントから見えるアカウントとプロパティを、フィルタせずすべて返します。
 
 ### データを守っていないもの
 

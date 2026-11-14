@@ -31,7 +31,7 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 - `dimension_filter` / `metric_filter` / `order_bys` 内は **protobuf フィールド名＝基本 snake_case**（`field_name`, `string_filter`, `and_group` 等）。REST の camelCase 例はキーを snake_case に読み替える。
 - 許可リストにない `property_id` は拒否される。`run_report` はリテラル日付レンジの日数上限・`limit` 上限あり。`return_property_quota` はサーバーで上書きされうる。`run_realtime_report` はサーバーで無効化されうる。
 - 標準の次元・指標名: 通常 https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema#dimensions / #metrics 。リアルタイム https://developers.google.com/analytics/devguides/reporting/data/v1/realtime-api-schema#dimensions / #metrics 。カスタム名は `get_custom_dimensions_and_metrics` の返却（通常 `apiName`）のみ使う。
-- `get_account_summaries` が空に近いときは、実行サービスアカウントに GA4 で閲覧権限が無い可能性がある。
+- `get_account_summaries` は許可リスト内のプロパティだけを返す。許可したプロパティが残らないアカウントは含まれない。空に近いときは、許可リストが狭い、または実行サービスアカウントに GA4 の閲覧権限が無い可能性がある。
 
 
 ## ツール
@@ -79,7 +79,7 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 ## ツール仕様（引数・例）
 ### `get_account_summaries`
 引数: `{}`  
-返却: アカウントサマリのリスト（辞書の配列）。
+返却: 許可リスト内のアカウントサマリ（辞書の配列）。`GA4MCP_ALLOW_ALL_PROPERTIES=true` のときはサービスアカウントから見える全件。
 
 
 ### `get_property_details`

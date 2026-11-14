@@ -188,10 +188,12 @@ This server is designed to be deployed on the public internet (the documented pa
 | Layer | What it does | Knob |
 | --- | --- | --- |
 | Authentication | Constant-time bearer-token check (`hmac.compare_digest`) on `Authorization: Bearer <token>` | `GA4MCP_AUTH_MODE=bearer` + `GA4MCP_BEARER_TOKEN` |
-| Authorization | Per-request GA4 property allowlist; requests for any other property are refused before they reach Google | `GA4MCP_ALLOWED_PROPERTY_IDS` |
+| Authorization | Per-request GA4 property allowlist; requests for any other property are refused before they reach Google. `get_account_summaries` also returns only allowlisted properties | `GA4MCP_ALLOWED_PROPERTY_IDS` |
 | Production guard | The server refuses to start with `GA4MCP_ENV=production` + `GA4MCP_AUTH_MODE=none`, so an unauthenticated public deployment cannot happen by accident | enforced at startup |
 | Network hardening | `Host`-header allowlist for DNS-rebinding protection in production | `GA4MCP_ALLOWED_HOSTS` |
 | Error responses | Internal exceptions are mapped to a generic `internal_error` for the client; full detail is only logged server-side | enforced in `errors/normalize.py` |
+
+`get_account_summaries` returns only properties in `GA4MCP_ALLOWED_PROPERTY_IDS`. Accounts with no remaining allowed properties are omitted. When the allowlist is empty and `GA4MCP_ALLOW_ALL_PROPERTIES` is not `true` (unset or `false`), the tool returns an empty list and does not call Google. `GA4MCP_ALLOW_ALL_PROPERTIES=true` returns every account and property the service account can see, with no filtering.
 
 ### What does NOT protect your data
 
