@@ -41,6 +41,10 @@ from ga4_remote_mcp.ga.tools.reporting.core import (
     _run_report_description,
     run_report,
 )
+from ga4_remote_mcp.ga.tools.reporting.funnel import (
+    _run_funnel_report_description,
+    run_funnel_report,
+)
 from ga4_remote_mcp.ga.tools.reporting.metadata import get_custom_dimensions_and_metrics
 from ga4_remote_mcp.ga.tools.reporting.realtime import (
     _run_realtime_report_description,
@@ -57,6 +61,8 @@ from ga4_remote_mcp.structured_log.jsonlog import log_line
 
 run_report_with_description = FunctionTool(run_report)
 run_report_with_description.description = _run_report_description()
+run_funnel_report_with_description = FunctionTool(run_funnel_report)
+run_funnel_report_with_description.description = _run_funnel_report_description()
 run_realtime_report_with_description = FunctionTool(run_realtime_report)
 run_realtime_report_with_description.description = _run_realtime_report_description()
 
@@ -67,6 +73,7 @@ tools = [
     FunctionTool(list_property_annotations),
     FunctionTool(get_custom_dimensions_and_metrics),
     run_report_with_description,
+    run_funnel_report_with_description,
     run_realtime_report_with_description,
 ]
 

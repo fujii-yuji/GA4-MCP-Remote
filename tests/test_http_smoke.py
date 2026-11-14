@@ -121,6 +121,7 @@ def test_mcp_lists_tools_and_validates_call_input() -> None:
         "list_property_annotations",
         "get_custom_dimensions_and_metrics",
         "run_report",
+        "run_funnel_report",
         "run_realtime_report",
     }
     body = _mcp_json(called)["result"]

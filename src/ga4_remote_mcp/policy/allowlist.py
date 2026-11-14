@@ -13,6 +13,7 @@ TOOLS_REQUIRING_PROPERTY = frozenset(
         "list_property_annotations",
         "get_custom_dimensions_and_metrics",
         "run_report",
+        "run_funnel_report",
         "run_realtime_report",
     }
 )

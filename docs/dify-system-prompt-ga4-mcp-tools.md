@@ -29,7 +29,7 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 - `property_id`: 数値、`"123456789"` のような数字文字列、`"properties/123456789"` のいずれか。
 - `dimensions` と `metrics` は **文字列の配列**（API 名）。正: `["date","sessions"]`。誤: `[{"name":"date"}]`（`not of type string` の原因）。
 - `dimension_filter` / `metric_filter` / `order_bys` 内は **protobuf フィールド名＝基本 snake_case**（`field_name`, `string_filter`, `and_group` 等）。REST の camelCase 例はキーを snake_case に読み替える。
-- 許可リストにない `property_id` は拒否される。`run_report` の日付幅（`YYYY-MM-DD` と `today` / `yesterday` / `NdaysAgo`。片方だけ相対でも測れる）は `GA4MCP_MAX_DATE_RANGE_DAYS` を超えると拒否される。測れない日付、空の `date_ranges` は拒否される。`limit` は `GA4MCP_MAX_ROW_LIMIT` 以下。省略すると、Data API の既定 10,000 行とその上限の小さい方がサーバー側で入る。`run_realtime_report` も同じ行数上限。`return_property_quota` はサーバーで上書きされうる。`run_realtime_report` はサーバーで無効化されうる。
+- 許可リストにない `property_id` は拒否される。`run_report` と `run_funnel_report` の日付幅（`YYYY-MM-DD` と `today` / `yesterday` / `NdaysAgo`。片方だけ相対でも測れる）は `GA4MCP_MAX_DATE_RANGE_DAYS` を超えると拒否される。測れない日付、空の `date_ranges` は拒否される。`run_report` と `run_realtime_report` の `limit` は `GA4MCP_MAX_ROW_LIMIT` 以下。省略すると、Data API の既定 10,000 行とその上限の小さい方がサーバー側で入る。`run_funnel_report` にはその行数既定を入れない。`funnel_next_action.limit` を付けたときだけ、同じ行数上限で拒否する。`return_property_quota` はサーバーで上書きされうる。`run_realtime_report` はサーバーで無効化されうる。
 - 標準の次元・指標名: 通常 https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema#dimensions / #metrics 。リアルタイム https://developers.google.com/analytics/devguides/reporting/data/v1/realtime-api-schema#dimensions / #metrics 。カスタム名は `get_custom_dimensions_and_metrics` の返却（通常 `apiName`）のみ使う。
 - `get_account_summaries` は許可リスト内のプロパティだけを返す。許可したプロパティが残らないアカウントは含まれない。空に近いときは、許可リストが狭い、または実行サービスアカウントに GA4 の閲覧権限が無い可能性がある。
 
@@ -43,6 +43,7 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 | `list_google_ads_links` | Google 広告リンク |
 | `get_custom_dimensions_and_metrics` | カスタム次元・指標の API 名 |
 | `run_report` | 過去期間の通常レポート |
+| `run_funnel_report` | ファネル（ステップ間の到達）。Data API alpha |
 | `run_realtime_report` | リアルタイム（`date_ranges` なし・Realtime スキーマのみ・カスタム指標不可） |
 
 
@@ -54,6 +55,7 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 - **広告連携・Google 広告との紐づけ** → `list_google_ads_links`。
 - **カスタム次元・カスタム指標・イベントパラメータ由来の名前が話題** → 先に `get_custom_dimensions_and_metrics`、その `apiName` だけを `run_report` に使う。
 - **過去の期間の数・推移・内訳・比較（日次・チャネル・ページ等）** → `run_report`（`date_ranges` と `dimensions`/`metrics` を問いに合わせる）。
+- **ステップ間の到達・離脱（例: セッション開始から購入まで）** → `run_funnel_report`。内訳の集計は `run_report`。
 - **「いま」「直近」「リアルタイム」** → `run_realtime_report`（Realtime 用の次元・指標のみ。カスタム指標は不可）。
 
 
@@ -265,6 +267,34 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 
 
 返却: RunReport 相当の辞書（`rows`, `dimension_headers` 等、キーは snake_case 化されうる）。
+
+
+### `run_funnel_report`
+必須: `property_id`, `funnel_steps`（配列）, `date_ranges`（配列）。  
+任意: `funnel_breakdown`, `funnel_next_action`, `segments`, `return_property_quota`。
+
+
+`funnel_steps` の各要素は、イベント名だけの短い形か、Data API alpha の `filter_expression` のどちらか。
+
+
+```json
+{
+  "property_id": "123456789",
+  "date_ranges": [
+    { "start_date": "30daysAgo", "end_date": "yesterday", "name": "last30" }
+  ],
+  "funnel_steps": [
+    { "name": "Session start", "event": "session_start" },
+    { "name": "Purchase", "event": "purchase" }
+  ]
+}
+```
+
+
+`funnel_breakdown` は `{ "breakdown_dimension": "deviceCategory" }`。`funnel_next_action` は `{ "next_action_dimension": "eventName", "limit": 5 }`。`limit` を付けるときは `GA4MCP_MAX_ROW_LIMIT` 以下。日付幅は `run_report` と同じ上限。
+
+
+返却: RunFunnelReport 相当の辞書（`funnel_table`, `funnel_visualization` 等、キーは snake_case 化されうる）。
 
 
 ### `run_realtime_report`

@@ -24,6 +24,7 @@ from ga4_remote_mcp.config.settings import Settings
 
 # https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/runReport
 _DATA_API_DEFAULT_ROW_LIMIT = 10_000
+_DATE_RANGE_TOOLS = frozenset({"run_report", "run_funnel_report"})
 _ROW_LIMIT_TOOLS = frozenset({"run_report", "run_realtime_report"})
 _DAYS_AGO = re.compile(r"^(\d+)daysAgo$")
 
@@ -124,6 +125,54 @@ def _apply_row_limit(
     return True, None
 
 
+def _validate_funnel_steps(steps: object) -> tuple[bool, str | None]:
+    if not isinstance(steps, list) or not steps:
+        return False, "funnel_steps must be a non-empty list"
+    for index, step in enumerate(steps):
+        if not isinstance(step, dict):
+            return False, f"funnel_steps[{index}] must be an object"
+        has_filter = "filter_expression" in step
+        has_event = "event" in step
+        if not has_filter and not has_event:
+            return (
+                False,
+                f"funnel_steps[{index}] must contain filter_expression or event",
+            )
+        if has_filter:
+            if not isinstance(step.get("filter_expression"), dict):
+                return False, f"funnel_steps[{index}].filter_expression must be an object"
+            continue
+        if not isinstance(step.get("event"), str) or not step["event"].strip():
+            return False, f"funnel_steps[{index}].event must be a non-empty string"
+    return True, None
+
+
+def _apply_funnel_next_action_limit(
+    args: dict[str, Any],
+    settings: Settings,
+) -> tuple[bool, str | None]:
+    """Cap ``funnel_next_action.limit`` when the caller sets it."""
+    action = args.get("funnel_next_action")
+    if action is None:
+        return True, None
+    if not isinstance(action, dict):
+        return False, "funnel_next_action must be an object"
+    if action.get("limit") is None:
+        return True, None
+    lim = _parse_row_limit(action["limit"])
+    if lim is None or lim < 1:
+        return False, "funnel_next_action.limit must be a positive integer"
+    if lim > settings.max_row_limit:
+        return (
+            False,
+            f"funnel_next_action.limit exceeds GA4MCP_MAX_ROW_LIMIT ({settings.max_row_limit})",
+        )
+    updated = dict(action)
+    updated["limit"] = lim
+    args["funnel_next_action"] = updated
+    return True, None
+
+
 def validate_tool_arguments(
     tool_name: str,
     arguments: dict[str, Any],
@@ -141,11 +190,19 @@ def validate_tool_arguments(
     if tool_name == "run_realtime_report" and not settings.enable_realtime:
         return False, "tool_disabled", None, "run_realtime_report is disabled"
 
-    if tool_name == "run_report":
+    if tool_name in _DATE_RANGE_TOOLS:
         dr = args.get("date_ranges")
         if not isinstance(dr, list) or not dr:
             return False, "invalid_request", None, "date_ranges must be a non-empty list"
         ok, msg = _max_span_days_in_ranges(dr, settings.max_date_range_days, today)
+        if not ok:
+            return False, "invalid_request", None, msg
+
+    if tool_name == "run_funnel_report":
+        ok, msg = _validate_funnel_steps(args.get("funnel_steps"))
+        if not ok:
+            return False, "invalid_request", None, msg
+        ok, msg = _apply_funnel_next_action_limit(args, settings)
         if not ok:
             return False, "invalid_request", None, msg
 
@@ -154,7 +211,7 @@ def validate_tool_arguments(
         if not ok:
             return False, "invalid_request", None, msg
 
-    if tool_name == "run_report" and not settings.return_property_quota_default:
+    if tool_name in _DATE_RANGE_TOOLS and not settings.return_property_quota_default:
         args["return_property_quota"] = False
 
     return True, None, args if args != arguments else None, None

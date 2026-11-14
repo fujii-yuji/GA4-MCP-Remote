@@ -1,4 +1,4 @@
-"""MCP tool name contract (prd §12.1): 7 tools, stable names."""
+"""MCP tool name contract (prd §12.1): stable tool names."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ EXPECTED = frozenset(
         "list_property_annotations",
         "get_custom_dimensions_and_metrics",
         "run_report",
+        "run_funnel_report",
         "run_realtime_report",
     }
 )
