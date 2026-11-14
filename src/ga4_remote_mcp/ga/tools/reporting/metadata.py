@@ -52,6 +52,10 @@ def get_date_ranges_hints():
 
       4. Multiple date ranges:
         [ {proto_to_json(range_jan)}, {proto_to_json(range_feb)} ]
+
+    The server measures today, yesterday, and NdaysAgo as well as YYYY-MM-DD.
+    A range longer than GA4MCP_MAX_DATE_RANGE_DAYS is rejected, including a
+    mix of one calendar date and one relative date.
     """
 
 
