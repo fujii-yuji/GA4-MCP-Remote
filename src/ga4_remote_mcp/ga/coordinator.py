@@ -126,6 +126,8 @@ async def call_mcp_tool(
     rid = request_id_var.get()
     t0 = time.perf_counter()
 
+    logged_args = arguments
+
     listed = next((tool for tool in _visible_tools() if tool.name == name), None)
     if listed is not None:
         try:
@@ -141,8 +143,8 @@ async def call_mcp_tool(
         property_id: str | None = None,
     ) -> None:
         row_limit = None
-        if isinstance(arguments, dict):
-            lim = arguments.get("limit")
+        if isinstance(logged_args, dict):
+            lim = logged_args.get("limit")
             if lim is not None:
                 row_limit = lim
         log_line(
@@ -197,17 +199,18 @@ async def call_mcp_tool(
                 )
             )
 
-    ok, err_code, mutated = validate_tool_arguments(name, arguments, settings)
+    ok, err_code, mutated, detail = validate_tool_arguments(name, arguments, settings)
     if not ok:
         emit(status="error", error_code=err_code or "invalid_request", property_id=prop_norm)
         return _text_result(
             tool_error_payload(
                 code=err_code or "invalid_request",
-                message="Request failed guardrail validation",
+                message=detail or "Request failed guardrail validation",
             )
         )
 
     exec_args = mutated if mutated is not None else arguments
+    logged_args = exec_args
     tool = tool_map[name]
     timeout_s = settings.request_timeout_ms / 1000.0
 

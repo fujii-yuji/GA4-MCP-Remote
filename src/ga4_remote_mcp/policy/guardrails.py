@@ -1,40 +1,126 @@
-"""Guardrails (prd §16, tech §9.3)."""
+"""Guardrails (prd §16, tech §9.3).
+
+Date spans accept ``YYYY-MM-DD`` and the Data API forms ``today``,
+``yesterday``, and ``NdaysAgo``. Relative ends are resolved against UTC
+today. A property reporting timezone can move a mixed absolute/relative
+span by one calendar day; a span with two relative ends does not depend
+on that zone. One range over the cap, or a range that cannot be measured,
+rejects the whole request.
+
+The Data API returns 10,000 rows when ``limit`` is omitted, and at most
+250,000. An omitted ``limit`` is set to ``min(10_000, max_row_limit)`` so
+the server cap applies without raising the API default. ``limit`` below 1
+is rejected: the report builders treat 0 as unset and would otherwise
+fetch the API default.
+"""
 
 from __future__ import annotations
 
-from datetime import datetime
+import re
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from ga4_remote_mcp.config.settings import Settings
 
+# https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/runReport
+_DATA_API_DEFAULT_ROW_LIMIT = 10_000
+_ROW_LIMIT_TOOLS = frozenset({"run_report", "run_realtime_report"})
+_DAYS_AGO = re.compile(r"^(\d+)daysAgo$")
 
-def _parse_ymd(s: str) -> datetime | None:
+
+def _utc_today() -> date:
+    return datetime.now(timezone.utc).date()
+
+
+def _parse_ymd(value: str) -> date | None:
     try:
-        return datetime.strptime(s.strip(), "%Y-%m-%d")
-    except (ValueError, AttributeError):
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
         return None
+
+
+def _resolve_date(value: object, today: date) -> date | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    parsed = _parse_ymd(text)
+    if parsed is not None:
+        return parsed
+    if text == "today":
+        return today
+    if text == "yesterday":
+        return today - timedelta(days=1)
+    match = _DAYS_AGO.fullmatch(text)
+    if match is None:
+        return None
+    try:
+        return today - timedelta(days=int(match.group(1)))
+    except OverflowError:
+        return None
+
+
+def _range_endpoint(dr: dict[str, Any], *keys: str) -> object:
+    for key in keys:
+        if key in dr and dr[key] is not None:
+            return dr[key]
+    return None
+
+
+def _inclusive_span_days(start: date, end: date) -> int:
+    return abs((end - start).days) + 1
 
 
 def _max_span_days_in_ranges(
     date_ranges: list[dict[str, Any]],
     max_days: int,
+    today: date,
 ) -> tuple[bool, str | None]:
-    """Return (ok, error_message). Fails closed on unparseable literal ranges only."""
+    """Return (ok, error_message)."""
     for dr in date_ranges:
         if not isinstance(dr, dict):
             return False, "date_ranges entries must be objects"
-        start = dr.get("start_date")
-        end = dr.get("end_date")
-        if not isinstance(start, str) or not isinstance(end, str):
-            continue
-        ds = _parse_ymd(start)
-        de = _parse_ymd(end)
-        if ds is None or de is None:
-            # Relative names like yesterday — skip strict span check
-            continue
-        span = abs((de - ds).days) + 1
-        if span > max_days:
+        start = _resolve_date(_range_endpoint(dr, "start_date", "startDate"), today)
+        end = _resolve_date(_range_endpoint(dr, "end_date", "endDate"), today)
+        if start is None or end is None:
+            return (
+                False,
+                "date range must use YYYY-MM-DD, today, yesterday, or NdaysAgo",
+            )
+        if _inclusive_span_days(start, end) > max_days:
             return False, f"date range exceeds GA4MCP_MAX_DATE_RANGE_DAYS ({max_days})"
+    return True, None
+
+
+def _parse_row_limit(limit: object) -> int | None:
+    if isinstance(limit, bool):
+        return None
+    if isinstance(limit, int):
+        return limit
+    if isinstance(limit, float):
+        if not limit.is_integer():
+            return None
+        return int(limit)
+    if isinstance(limit, str) and re.fullmatch(r"-?\d+", limit.strip()):
+        return int(limit.strip())
+    return None
+
+
+def _apply_row_limit(
+    args: dict[str, Any],
+    settings: Settings,
+) -> tuple[bool, str | None]:
+    """Write a capped limit into ``args``. Return (ok, error_message)."""
+    if args.get("limit") is None:
+        args["limit"] = min(_DATA_API_DEFAULT_ROW_LIMIT, settings.max_row_limit)
+        return True, None
+    lim = _parse_row_limit(args["limit"])
+    if lim is None or lim < 1:
+        return False, "limit must be a positive integer"
+    if lim > settings.max_row_limit:
+        return False, f"limit exceeds GA4MCP_MAX_ROW_LIMIT ({settings.max_row_limit})"
+    args["limit"] = lim
     return True, None
 
 
@@ -42,32 +128,33 @@ def validate_tool_arguments(
     tool_name: str,
     arguments: dict[str, Any],
     settings: Settings,
-) -> tuple[bool, str | None, dict[str, Any] | None]:
+) -> tuple[bool, str | None, dict[str, Any] | None, str | None]:
     """
-    Return (ok, error_code, mutated_args).
+    Return (ok, error_code, mutated_args, error_message).
 
-    If ok, mutated_args is a copy of arguments with policy applied (or None if unchanged).
+    If ok, mutated_args is a copy of arguments with policy applied, or None
+    when nothing changed. error_message is set only when ok is False.
     """
     args = dict(arguments)
+    today = _utc_today()
 
     if tool_name == "run_realtime_report" and not settings.enable_realtime:
-        return False, "tool_disabled", None
+        return False, "tool_disabled", None, "run_realtime_report is disabled"
 
     if tool_name == "run_report":
         dr = args.get("date_ranges")
-        if isinstance(dr, list) and dr:
-            ok, msg = _max_span_days_in_ranges(dr, settings.max_date_range_days)
-            if not ok:
-                return False, "invalid_request", None
-        limit = args.get("limit")
-        if limit is not None:
-            try:
-                lim = int(limit)
-            except (TypeError, ValueError):
-                return False, "invalid_request", None
-            if lim > settings.max_row_limit:
-                return False, "invalid_request", None
-        if not settings.return_property_quota_default:
-            args["return_property_quota"] = False
+        if not isinstance(dr, list) or not dr:
+            return False, "invalid_request", None, "date_ranges must be a non-empty list"
+        ok, msg = _max_span_days_in_ranges(dr, settings.max_date_range_days, today)
+        if not ok:
+            return False, "invalid_request", None, msg
 
-    return True, None, args if args != arguments else None
+    if tool_name in _ROW_LIMIT_TOOLS:
+        ok, msg = _apply_row_limit(args, settings)
+        if not ok:
+            return False, "invalid_request", None, msg
+
+    if tool_name == "run_report" and not settings.return_property_quota_default:
+        args["return_property_quota"] = False
+
+    return True, None, args if args != arguments else None, None

@@ -160,7 +160,7 @@ async def run_report(
             data_v1beta.OrderBy(order_by) for order_by in order_bys
         ]
 
-    if limit:
+    if limit is not None:
         request.limit = limit
     if offset:
         request.offset = offset

@@ -29,7 +29,7 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 - `property_id`: 数値、`"123456789"` のような数字文字列、`"properties/123456789"` のいずれか。
 - `dimensions` と `metrics` は **文字列の配列**（API 名）。正: `["date","sessions"]`。誤: `[{"name":"date"}]`（`not of type string` の原因）。
 - `dimension_filter` / `metric_filter` / `order_bys` 内は **protobuf フィールド名＝基本 snake_case**（`field_name`, `string_filter`, `and_group` 等）。REST の camelCase 例はキーを snake_case に読み替える。
-- 許可リストにない `property_id` は拒否される。`run_report` はリテラル日付レンジの日数上限・`limit` 上限あり。`return_property_quota` はサーバーで上書きされうる。`run_realtime_report` はサーバーで無効化されうる。
+- 許可リストにない `property_id` は拒否される。`run_report` の日付幅（`YYYY-MM-DD` と `today` / `yesterday` / `NdaysAgo`。片方だけ相対でも測れる）は `GA4MCP_MAX_DATE_RANGE_DAYS` を超えると拒否される。測れない日付、空の `date_ranges` は拒否される。`limit` は `GA4MCP_MAX_ROW_LIMIT` 以下。省略すると、Data API の既定 10,000 行とその上限の小さい方がサーバー側で入る。`run_realtime_report` も同じ行数上限。`return_property_quota` はサーバーで上書きされうる。`run_realtime_report` はサーバーで無効化されうる。
 - 標準の次元・指標名: 通常 https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema#dimensions / #metrics 。リアルタイム https://developers.google.com/analytics/devguides/reporting/data/v1/realtime-api-schema#dimensions / #metrics 。カスタム名は `get_custom_dimensions_and_metrics` の返却（通常 `apiName`）のみ使う。
 - `get_account_summaries` が空に近いときは、実行サービスアカウントに GA4 で閲覧権限が無い可能性がある。
 
