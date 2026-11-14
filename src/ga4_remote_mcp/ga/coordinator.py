@@ -86,6 +86,35 @@ INSTRUCTIONS = (
     "google-analytics-mcp. Read-only GA4 access via official Data/Admin APIs."
 )
 
+# ADK infers these from signatures today. Assign them here so a generator change
+# cannot drop a field that clients already treat as required.
+_EXPLICIT_REQUIRED: dict[str, list[str]] = {
+    "run_report": ["property_id", "date_ranges", "dimensions", "metrics"],
+    "run_realtime_report": ["property_id", "dimensions", "metrics"],
+    "run_funnel_report": ["property_id", "funnel_steps", "date_ranges"],
+    "list_key_events": ["property_id"],
+}
+
+
+def sanitize_mcp_schema_properties(node: object) -> None:
+    """Force ``additionalProperties`` to a boolean, including nested nodes.
+
+    Claude Desktop rejects a schema object in that field. Same walk as
+    ``analytics_mcp.coordinator.sanitize_mcp_schema_properties``. A boolean
+    ``true`` or ``false`` is left as-is.
+    """
+    if not isinstance(node, dict):
+        return
+    if "additionalProperties" in node and not isinstance(node["additionalProperties"], bool):
+        node["additionalProperties"] = True
+    for child in node.values():
+        if isinstance(child, dict):
+            sanitize_mcp_schema_properties(child)
+        elif isinstance(child, list):
+            for element in child:
+                if isinstance(element, dict):
+                    sanitize_mcp_schema_properties(element)
+
 
 def _normalize_input_schema(tool: mcp_types.Tool) -> None:
     schema = dict(tool.input_schema or {})
@@ -96,7 +125,17 @@ def _normalize_input_schema(tool: mcp_types.Tool) -> None:
         for prop in properties.values():
             if isinstance(prop, dict) and "anyOf" in prop and prop.get("type") == "null":
                 del prop["type"]
+    sanitize_mcp_schema_properties(schema)
+    required = _EXPLICIT_REQUIRED.get(tool.name)
+    if required is not None:
+        schema["required"] = list(required)
     tool.input_schema = schema
+    # Every published tool is read-only. Do not copy the official write-tool branch.
+    tool.annotations = mcp_types.ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        open_world_hint=True,
+    )
 
 
 mcp_tools = [adk_to_mcp_tool_type(tool) for tool in tools]
