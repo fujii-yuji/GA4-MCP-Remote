@@ -54,7 +54,18 @@ def test_sanitize_walks_nested_objects_and_array_items() -> None:
     assert props["choices"]["anyOf"][1] == {"type": "null"}
 
 
-def test_published_tools_are_read_only_and_funnel_breakdown_is_a_boolean() -> None:
+def _assert_additional_properties_are_bools(node: object) -> None:
+    if isinstance(node, dict):
+        if "additionalProperties" in node:
+            assert isinstance(node["additionalProperties"], bool)
+        for child in node.values():
+            _assert_additional_properties_are_bools(child)
+    elif isinstance(node, list):
+        for element in node:
+            _assert_additional_properties_are_bools(element)
+
+
+def test_published_tools_are_read_only_and_schemas_use_bool_additional_properties() -> None:
     for tool in mcp_tools:
         annotations = tool.annotations
         assert annotations is not None
@@ -63,10 +74,14 @@ def test_published_tools_are_read_only_and_funnel_breakdown_is_a_boolean() -> No
         assert annotations.open_world_hint is True
         assert annotations.idempotent_hint is None
         assert annotations.title is None
+        # Python 3.10's generator omits additionalProperties on funnel_breakdown.
+        # 3.11+ emits a schema object, which sanitize turns into true. Either is
+        # safe for Claude Desktop; a schema object is not.
+        _assert_additional_properties_are_bools(tool.input_schema)
 
     funnel = next(tool for tool in mcp_tools if tool.name == "run_funnel_report")
     breakdown = funnel.input_schema["properties"]["funnel_breakdown"]
-    assert breakdown["additionalProperties"] is True
+    assert breakdown.get("additionalProperties", True) is True
     property_id = funnel.input_schema["properties"]["property_id"]
     assert property_id.get("type") == "string"
     assert "anyOf" not in property_id
