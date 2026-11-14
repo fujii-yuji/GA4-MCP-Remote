@@ -81,6 +81,36 @@ def test_development_with_auth_none_is_accepted(monkeypatch: pytest.MonkeyPatch)
     assert s.auth_mode == "none"
 
 
+def test_production_without_allowlist_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Auth can pass and the allowlist gate must still refuse to start."""
+    with pytest.raises(ValidationError) as excinfo:
+        _build_settings(
+            monkeypatch,
+            GA4MCP_ENV="production",
+            GA4MCP_AUTH_MODE="bearer",
+            GA4MCP_BEARER_TOKEN="example-secret-token",
+            GA4MCP_ALLOWED_PROPERTY_IDS="",
+            GA4MCP_ALLOW_ALL_PROPERTIES="false",
+        )
+    assert "GA4MCP_ALLOWED_PROPERTY_IDS" in str(excinfo.value)
+
+
+def test_production_dns_protection_requires_allowed_hosts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        _build_settings(
+            monkeypatch,
+            GA4MCP_ENV="production",
+            GA4MCP_AUTH_MODE="bearer",
+            GA4MCP_BEARER_TOKEN="example-secret-token",
+            GA4MCP_ALLOWED_PROPERTY_IDS="123456789",
+            GA4MCP_ENABLE_DNS_REBINDING_PROTECTION="true",
+            GA4MCP_ALLOWED_HOSTS="",
+        )
+    assert "GA4MCP_ALLOWED_HOSTS" in str(excinfo.value)
+
+
 def test_production_combined_with_missing_allowlist_surfaces_at_least_one_gate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

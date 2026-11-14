@@ -298,6 +298,21 @@ def test_empty_or_missing_date_ranges_are_rejected(monkeypatch: pytest.MonkeyPat
         assert "date_ranges" in message
 
 
+def test_run_report_forces_return_property_quota_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    s = _settings(monkeypatch, GA4MCP_RETURN_PROPERTY_QUOTA_DEFAULT="false")
+    ok, code, mutated, _ = validate_tool_arguments(
+        "run_report",
+        {"date_ranges": _ONE_DAY, "return_property_quota": True, "limit": 10},
+        s,
+    )
+    assert ok is True
+    assert code is None
+    assert mutated is not None
+    assert mutated["return_property_quota"] is False
+
+
 def test_zero_days_ago_and_overflow(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(guardrails, "_utc_today", lambda: date(2026, 11, 14))
     s = _settings(monkeypatch, GA4MCP_MAX_DATE_RANGE_DAYS="1")
