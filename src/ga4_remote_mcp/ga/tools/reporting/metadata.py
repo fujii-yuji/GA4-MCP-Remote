@@ -22,7 +22,7 @@ from ga4_remote_mcp.ga.tools.utils import (
     proto_to_dict,
     proto_to_json,
 )
-from google.analytics import data_v1beta
+from google.analytics import data_v1alpha, data_v1beta
 
 
 def get_date_ranges_hints():
@@ -56,6 +56,68 @@ def get_date_ranges_hints():
     The server measures today, yesterday, and NdaysAgo as well as YYYY-MM-DD.
     A range longer than GA4MCP_MAX_DATE_RANGE_DAYS is rejected, including a
     mix of one calendar date and one relative date.
+    """
+
+
+def get_funnel_steps_hints():
+    """Returns hints and examples for funnel steps configuration."""
+    step_first_open = data_v1alpha.FunnelStep(
+        name="First open/visit",
+        filter_expression=data_v1alpha.FunnelFilterExpression(
+            or_group=data_v1alpha.FunnelFilterExpressionList(
+                expressions=[
+                    data_v1alpha.FunnelFilterExpression(
+                        funnel_event_filter=data_v1alpha.FunnelEventFilter(
+                            event_name="first_open"
+                        )
+                    ),
+                    data_v1alpha.FunnelFilterExpression(
+                        funnel_event_filter=data_v1alpha.FunnelEventFilter(
+                            event_name="first_visit"
+                        )
+                    ),
+                ]
+            )
+        ),
+    )
+    step_session_start = data_v1alpha.FunnelStep(
+        name="Session start",
+        filter_expression=data_v1alpha.FunnelFilterExpression(
+            funnel_event_filter=data_v1alpha.FunnelEventFilter(event_name="session_start")
+        ),
+    )
+    step_purchase = data_v1alpha.FunnelStep(
+        name="Purchase",
+        filter_expression=data_v1alpha.FunnelFilterExpression(
+            funnel_event_filter=data_v1alpha.FunnelEventFilter(event_name="purchase")
+        ),
+    )
+    return f"""Example funnel_steps configurations.
+
+    A step is either a simple event name or a full filter_expression.
+    Field names are snake_case.
+
+    1. Simple event step (preferred when the step is one event):
+        {{ "name": "Session start", "event": "session_start" }}
+
+    2. Full filter_expression, including OR of two events:
+        {proto_to_json(step_first_open)}
+
+    3. Single-event filter_expression:
+        {proto_to_json(step_session_start)}
+
+    ## Complete funnel example
+
+    [
+        {{ "name": "Session start", "event": "session_start" }},
+        {{ "name": "Purchase", "event": "purchase" }}
+    ]
+
+    The same steps as filter_expression objects:
+    [
+        {proto_to_json(step_session_start)},
+        {proto_to_json(step_purchase)}
+    ]
     """
 
 

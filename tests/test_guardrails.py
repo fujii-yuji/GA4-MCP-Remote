@@ -316,3 +316,95 @@ def test_zero_days_ago_and_overflow(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     assert ok is False
     assert code == "invalid_request"
+
+
+_FUNNEL_STEPS = [{"name": "Session start", "event": "session_start"}]
+
+
+def test_funnel_rejects_wide_date_range(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = _settings(monkeypatch, GA4MCP_MAX_DATE_RANGE_DAYS="2")
+    ok, code, _, message = validate_tool_arguments(
+        "run_funnel_report",
+        {
+            "date_ranges": [{"start_date": "2025-01-01", "end_date": "2025-01-10"}],
+            "funnel_steps": _FUNNEL_STEPS,
+        },
+        s,
+    )
+    assert ok is False
+    assert code == "invalid_request"
+    assert message is not None
+    assert "GA4MCP_MAX_DATE_RANGE_DAYS" in message
+
+
+def test_funnel_ignores_event_when_filter_expression_is_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    s = _settings(monkeypatch)
+    ok, code, _, _ = validate_tool_arguments(
+        "run_funnel_report",
+        {
+            "date_ranges": _ONE_DAY,
+            "funnel_steps": [
+                {"name": "Visit", "event": "", "filter_expression": {"funnel_event_filter": {}}}
+            ],
+        },
+        s,
+    )
+    assert ok is True
+    assert code is None
+
+
+def test_funnel_rejects_empty_steps(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = _settings(monkeypatch)
+    ok, code, _, message = validate_tool_arguments(
+        "run_funnel_report",
+        {"date_ranges": _ONE_DAY, "funnel_steps": []},
+        s,
+    )
+    assert ok is False
+    assert code == "invalid_request"
+    assert message is not None
+    assert "funnel_steps" in message
+
+    ok, code, _, message = validate_tool_arguments(
+        "run_funnel_report",
+        {"date_ranges": _ONE_DAY, "funnel_steps": [{"event": ""}]},
+        s,
+    )
+    assert ok is False
+    assert code == "invalid_request"
+    assert message is not None
+    assert "event" in message
+
+
+def test_funnel_caps_next_action_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = _settings(monkeypatch, GA4MCP_MAX_ROW_LIMIT="10")
+    ok, code, mutated, _ = validate_tool_arguments(
+        "run_funnel_report",
+        {
+            "date_ranges": _ONE_DAY,
+            "funnel_steps": _FUNNEL_STEPS,
+            "funnel_next_action": {"next_action_dimension": "eventName", "limit": 4},
+        },
+        s,
+    )
+    assert ok is True
+    assert code is None
+    assert mutated is not None
+    assert mutated["funnel_next_action"]["limit"] == 4
+    assert mutated["return_property_quota"] is False
+
+    ok, code, _, message = validate_tool_arguments(
+        "run_funnel_report",
+        {
+            "date_ranges": _ONE_DAY,
+            "funnel_steps": _FUNNEL_STEPS,
+            "funnel_next_action": {"next_action_dimension": "eventName", "limit": 11},
+        },
+        s,
+    )
+    assert ok is False
+    assert code == "invalid_request"
+    assert message is not None
+    assert "GA4MCP_MAX_ROW_LIMIT" in message
