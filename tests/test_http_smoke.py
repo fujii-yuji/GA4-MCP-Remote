@@ -64,6 +64,72 @@ def test_mcp_accepts_post() -> None:
         assert r.status_code != 404
 
 
+def test_mcp_get_still_enforces_dns_rebinding(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GA4MCP_ENV", "development")
+    monkeypatch.setenv("GA4MCP_ENABLE_DNS_REBINDING_PROTECTION", "true")
+    monkeypatch.setenv("GA4MCP_ALLOWED_HOSTS", "mcp.example.com")
+    clear_settings_cache()
+    with TestClient(build_app()) as client:
+        rejected = client.get(
+            "/mcp",
+            headers={"Host": "evil.example", "Accept": "text/event-stream"},
+        )
+        allowed = client.get(
+            "/mcp",
+            headers={"Host": "mcp.example.com", "Accept": "text/event-stream"},
+        )
+    assert rejected.status_code == 421
+    assert allowed.status_code == 405
+
+
+def test_mcp_get_returns_405_instead_of_holding_sse() -> None:
+    """Stateless server must not open an empty SSE stream on GET /mcp.
+
+    n8n's MCP Client issues GET while a workflow is Active. A 200 that never
+    ends occupies a Cloud Run request until the platform timeout.
+    """
+    with TestClient(build_app()) as client:
+        r = client.get(
+            "/mcp",
+            headers={"Accept": "application/json, text/event-stream"},
+        )
+
+    assert r.status_code == 405
+    assert "text/event-stream" not in r.headers.get("content-type", "")
+    allow = {part.strip() for part in r.headers.get("allow", "").split(",") if part.strip()}
+    assert allow == {"POST"}
+    body = r.json()
+    assert body["jsonrpc"] == "2.0"
+    assert body["error"]["code"] == -32600
+    assert "server-sent event stream" in body["error"]["message"]
+
+
+def test_bearer_get_with_token_is_405_not_held_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GA4MCP_AUTH_MODE", "bearer")
+    monkeypatch.setenv("GA4MCP_BEARER_TOKEN", "expected-secret")
+    clear_settings_cache()
+    with TestClient(build_app()) as client:
+        r = client.get(
+            "/mcp",
+            headers={
+                "Authorization": "Bearer expected-secret",
+                "Accept": "application/json, text/event-stream",
+            },
+        )
+    assert r.status_code == 405
+    assert "text/event-stream" not in r.headers.get("content-type", "")
+
+
+def test_bearer_rejects_get_without_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GA4MCP_AUTH_MODE", "bearer")
+    monkeypatch.setenv("GA4MCP_BEARER_TOKEN", "expected-secret")
+    clear_settings_cache()
+    with TestClient(build_app()) as client:
+        r = client.get("/mcp", headers={"Accept": "text/event-stream"})
+    assert r.status_code == 401
+    assert r.json().get("error_code") == "authentication_failed"
+
+
 def test_bearer_rejects_without_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GA4MCP_AUTH_MODE", "bearer")
     monkeypatch.setenv("GA4MCP_BEARER_TOKEN", "expected-secret")

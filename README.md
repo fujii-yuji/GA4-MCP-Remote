@@ -117,6 +117,12 @@ AI の精度を上げるため、システムプロンプトを設定するこ�
    システムプロンプトの例: [docs/dify-system-prompt-ga4-mcp-tools.md](./docs/dify-system-prompt-ga4-mcp-tools.md)
 7. 必要な他のノードを設定(Slackから入力を受ける等)してテストしてください。
 
+### 接続を開いたままにしない
+
+- Server Transport は **HTTP Streamable** にする。このサーバーは、サーバーから送る SSE を持たない。`GET /mcp` はすぐに `405 Method Not Allowed` を返す。
+- ワークフローを Active にしたままだと、実行していなくても `GET /mcp` が出ることがある。使わないときは Active を外す。405 のあと、n8n が短い間隔で GET を再試行することがある。サーバーはその接続を握らない。
+- Cloud Run では、リクエストタイムアウトを延ばしても常時接続の費用は減らない。このサーバーは GET を握らず、すぐ 405 を返す。残るのは、ワークフローが Active のあいだ n8n が GET を再試行する分である。
+
 
 ---
 
@@ -210,6 +216,7 @@ docker run --rm -p 8080:8080 \
 
 - グレースフルシャットダウン: Uvicorn に `timeout_graceful_shutdown=30` 秒を指定。Kubernetes では `terminationGracePeriodSeconds` を 45〜60 程度に設定
 - ログと個人関連データ: 構造化ログに接続元 IP が含まれることがあります。保持期間・アクセス制御・GDPR 等はデプロイ・運用側の責務です
+- `GET /mcp`: このサーバーはステートレスで、`Mcp-Session-Id` を発行せず、サーバーからクライアントへの通知も送らない。SSE を出さないので GET はすぐ `405` を返す。接続はリクエストタイムアウトまで保持しない。n8n はワークフローが Active のあいだ GET を再試行しうる。使わないワークフローは Active を外す。Cloud Run のリクエストタイムアウトを延ばしても常時接続の費用は減らない。残る費用は、その再試行である
 
 ---
 

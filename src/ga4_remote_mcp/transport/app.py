@@ -6,7 +6,7 @@ import json
 from contextlib import asynccontextmanager
 
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-from mcp.server.transport_security import TransportSecuritySettings
+from mcp.server.transport_security import TransportSecurityMiddleware, TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
@@ -44,10 +44,60 @@ async def ready_endpoint(_: Request) -> JSONResponse:
     return JSONResponse({"ok": True})
 
 
+# JSON-RPC invalid request. Matches mcp.types.INVALID_REQUEST without importing it
+# into the HTTP bridge.
+_JSONRPC_INVALID_REQUEST = -32600
+
+# Only POST completes on this stateless server. DELETE has no session to
+# terminate, and the SDK rejects OPTIONS. Both already return 405.
+_MCP_ALLOW_HEADER = "POST"
+
+
+def _reject_get_without_sse() -> JSONResponse:
+    """405 for ``GET /mcp``.
+
+    This server runs ``StreamableHTTPSessionManager(stateless=True)`` and never
+    issues ``Mcp-Session-Id`` or server-to-client notifications. The Streamable
+    HTTP spec (2025-03-26) says an endpoint that does not offer an SSE stream
+    returns 405 instead of holding the GET open. Leaving the GET to the SDK
+    opens an empty ``text/event-stream`` and keeps the Cloud Run request until
+    the platform timeout.
+    """
+    return JSONResponse(
+        {
+            "jsonrpc": "2.0",
+            "id": "server-error",
+            "error": {
+                "code": _JSONRPC_INVALID_REQUEST,
+                "message": (
+                    "Method Not Allowed: this server does not offer a server-sent event stream"
+                ),
+            },
+        },
+        status_code=405,
+        headers={"Allow": _MCP_ALLOW_HEADER},
+    )
+
+
 class McpHttpBridge:
     """Forward /mcp to StreamableHTTPSessionManager."""
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope.get("method") == "GET":
+            # Reject before StreamableHTTPSessionManager. Its GET handler opens
+            # an empty SSE stream and does not return until the client or the
+            # platform closes it. Host / Origin checks still run, so this
+            # shortcut does not bypass DNS rebinding protection.
+            application = scope.get("app")
+            security = getattr(getattr(application, "state", None), "transport_security", None)
+            if security is not None:
+                error = await security.validate_request(Request(scope, receive), is_post=False)
+                if error is not None:
+                    await error(scope, receive, send)
+                    return
+            await _reject_get_without_sse()(scope, receive, send)
+            return
+
         application = scope.get("app")
         if application is None:
             log_line(
@@ -88,6 +138,7 @@ def build_app() -> ASGIApp:
         )
         async with session_manager.run():
             starlette_app.state.session_manager = session_manager
+            starlette_app.state.transport_security = TransportSecurityMiddleware(security)
             yield
 
     routes = [
@@ -96,6 +147,9 @@ def build_app() -> ASGIApp:
         Route(
             "/mcp",
             endpoint=McpHttpBridge(),
+            # GET stays on the route so the bridge can return 405 itself.
+            # Removing it would also 405, but Starlette's plain-text body
+            # would skip the JSON-RPC error clients already parse.
             methods=["GET", "POST", "DELETE", "OPTIONS"],
         ),
     ]
