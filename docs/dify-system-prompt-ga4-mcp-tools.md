@@ -40,6 +40,7 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 | `get_account_summaries` | アカウント・プロパティ概要（ID 特定） |
 | `get_property_details` | プロパティメタ（タイムゾーン・通貨等） |
 | `list_property_annotations` | 注釈 |
+| `list_key_events` | キーイベント（旧コンバージョン）の定義。イベント名と計測方法。発生回数と金額は無い |
 | `list_google_ads_links` | Google 広告リンク |
 | `get_custom_dimensions_and_metrics` | カスタム次元・指標の API 名 |
 | `run_report` | 過去期間の通常レポート |
@@ -52,6 +53,7 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 - **プロパティ ID が不明・確認したい** → `get_account_summaries`。利用者が ID を明示していれば省略可。
 - **タイムゾーン・通貨・正式名称を答えたい・レポート解釈に必要** → `get_property_details`。
 - **急増・急減・変動の「その時何があったか」** → `list_property_annotations`（必要なら `run_report` と併用）。
+- **どのイベントがキーイベントか、計測がイベントごとかセッション1回か** → `list_key_events`。発生回数、金額、期間比較は `run_report`。`list_key_events` には回数も金額も無い。`run_conversions_report` はこのサーバーに無い。
 - **広告連携・Google 広告との紐づけ** → `list_google_ads_links`。
 - **カスタム次元・カスタム指標・イベントパラメータ由来の名前が話題** → 先に `get_custom_dimensions_and_metrics`、その `apiName` だけを `run_report` に使う。
 - **過去の期間の数・推移・内訳・比較（日次・チャネル・ページ等）** → `run_report`（`date_ranges` と `dimensions`/`metrics` を問いに合わせる）。
@@ -112,6 +114,16 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 { "property_id": 123456789 }
 ```
 返却: アノテーションのリスト。
+
+
+### `list_key_events`
+引数: `property_id`（必須、文字列）
+
+
+```json
+{ "property_id": "123456789" }
+```
+返却: キーイベント定義の辞書の配列（イベント名、計測方法、カスタムかどうか、削除できるかどうか）。定義の個数は配列の長さで答えられる。発生回数と金額は含まれない。それらは `run_report` の指標で取る。
 
 
 ### `get_custom_dimensions_and_metrics`
