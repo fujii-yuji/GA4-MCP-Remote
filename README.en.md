@@ -116,6 +116,12 @@ Node names and settings may change over time — check the latest information.
    System prompt example: [docs/dify-system-prompt-ga4-mcp-tools.md](./docs/dify-system-prompt-ga4-mcp-tools.md)
 7. Configure other nodes as needed (e.g., receiving input from Slack) and test.
 
+### Do not keep the connection open
+
+- Set Server Transport to **HTTP Streamable**. This server does not send server-to-client SSE. `GET /mcp` returns `405 Method Not Allowed` immediately.
+- While a workflow stays Active, n8n may issue `GET /mcp` even when the workflow is not running. Deactivate it when you are not using it. After the 405, n8n may retry GET at a short interval. The server does not hold that connection.
+- On Cloud Run, raising the request timeout does not reduce the cost of an always-on connection. This server does not hold GET; it returns 405 immediately. What remains is n8n retrying GET while the workflow stays Active.
+
 
 ---
 
@@ -209,6 +215,7 @@ See [SECURITY.md](./SECURITY.md).
 
 - Graceful shutdown: Uvicorn is configured with `timeout_graceful_shutdown=30` seconds. For Kubernetes, set `terminationGracePeriodSeconds` to at least 45–60
 - Logging & personal data: Structured logs may include client IP. Retention, access control, and GDPR compliance are the deployer's responsibility
+- `GET /mcp`: This server is stateless. It does not issue `Mcp-Session-Id` and does not send server-to-client notifications, so it does not open an SSE stream. GET returns `405` immediately and is not held until the request timeout. n8n may retry GET while a workflow is Active; deactivate unused workflows. Raising the Cloud Run request timeout does not reduce the cost of an always-on connection. The remaining cost is those retries
 
 ---
 
