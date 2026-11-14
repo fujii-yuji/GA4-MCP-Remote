@@ -104,14 +104,22 @@ async def test_two_minute_ranges_are_copied_onto_the_request(monkeypatch) -> Non
     assert request.minute_ranges[1].end_minutes_ago == 15
 
 
+def _schema_without_title(schema: dict) -> dict:
+    return {key: value for key, value in schema.items() if key != "title"}
+
+
 def test_realtime_schema_keeps_minute_ranges_optional() -> None:
     tool = next(item for item in mcp_tools if item.name == "run_realtime_report")
     required = set(tool.input_schema.get("required") or [])
     assert required == {"property_id", "dimensions", "metrics"}
-    minute_ranges = tool.input_schema["properties"]["minute_ranges"]
-    assert minute_ranges.get("type") == "array"
+    properties = tool.input_schema["properties"]
+    # Python 3.10 emits anyOf [array, null] for an optional list. 3.11+ emits
+    # type array. Match the existing optional list so either generator is fine.
+    assert _schema_without_title(properties["minute_ranges"]) == _schema_without_title(
+        properties["order_bys"]
+    )
     assert "minute_ranges" not in required
-    property_id = tool.input_schema["properties"]["property_id"]
+    property_id = properties["property_id"]
     assert property_id.get("type") == "string"
     assert "anyOf" not in property_id
     assert "At most 2" in (tool.description or "")
