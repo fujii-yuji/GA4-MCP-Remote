@@ -35,6 +35,7 @@ from ga4_remote_mcp.ga.tools.admin.info import (
     get_account_summaries,
     get_property_details,
     list_google_ads_links,
+    list_key_events,
     list_property_annotations,
 )
 from ga4_remote_mcp.ga.tools.reporting.core import (
@@ -71,6 +72,7 @@ tools = [
     FunctionTool(list_google_ads_links),
     FunctionTool(get_property_details),
     FunctionTool(list_property_annotations),
+    FunctionTool(list_key_events),
     FunctionTool(get_custom_dimensions_and_metrics),
     run_report_with_description,
     run_funnel_report_with_description,

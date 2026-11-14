@@ -107,3 +107,27 @@ async def list_property_annotations(
         async for annotation_page in annotations_pager
     ]
     return all_pages
+
+
+async def list_key_events(property_id: str) -> List[Dict[str, Any]]:
+    """Returns key event definitions for a property.
+
+    Key events were formerly called conversions. Each item includes the event
+    name, counting method, whether it is custom, and whether it can be
+    deleted. A set default value is included when the property defines one.
+    This tool does not return event counts or monetary values.
+
+    Args:
+        property_id: The Google Analytics property ID as a string: numeric ID
+          (e.g. ``\"123456789\"``) or ``properties/123456789``.
+          (Typed as ``str`` only so MCP JSON Schema stays Gemini-compatible;
+          ``construct_property_rn`` still accepts numeric strings.)
+    """
+    request = admin_v1beta.ListKeyEventsRequest(
+        parent=construct_property_rn(property_id)
+    )
+    # The pager yields each KeyEvent. It does not yield response pages.
+    key_events_pager = await create_admin_api_client().list_key_events(
+        request=request
+    )
+    return [proto_to_dict(key_event) async for key_event in key_events_pager]

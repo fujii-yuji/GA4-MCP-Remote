@@ -11,6 +11,7 @@ TOOLS_REQUIRING_PROPERTY = frozenset(
         "list_google_ads_links",
         "get_property_details",
         "list_property_annotations",
+        "list_key_events",
         "get_custom_dimensions_and_metrics",
         "run_report",
         "run_funnel_report",
