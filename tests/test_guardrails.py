@@ -288,6 +288,87 @@ def test_realtime_row_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     assert mutated is None
 
 
+def test_minute_ranges_rejected_before_google(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = _settings(monkeypatch, GA4MCP_MAX_ROW_LIMIT="100")
+    cases = (
+        "nope",
+        {"name": "last5"},
+        [1, 2],
+        [{"name": "a"}, "b"],
+        [{}, {}, {}],
+    )
+    for minute_ranges in cases:
+        ok, code, _, message = validate_tool_arguments(
+            "run_realtime_report",
+            {"minute_ranges": minute_ranges, "limit": 10},
+            s,
+        )
+        assert ok is False, minute_ranges
+        assert code == "invalid_request"
+        assert message is not None
+        assert "minute_ranges" in message
+
+
+def test_minute_ranges_keep_row_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = _settings(monkeypatch, GA4MCP_MAX_ROW_LIMIT="100")
+    one = [{"name": "last5", "start_minutes_ago": 4, "end_minutes_ago": 0}]
+    two = [*one, {"name": "earlier", "start_minutes_ago": 29, "end_minutes_ago": 15}]
+
+    ok, _, mutated, _ = validate_tool_arguments(
+        "run_realtime_report",
+        {"minute_ranges": one, "limit": 10},
+        s,
+    )
+    assert ok is True
+    assert mutated is None
+
+    ok, _, mutated, _ = validate_tool_arguments(
+        "run_realtime_report",
+        {"minute_ranges": two},
+        s,
+    )
+    assert ok is True
+    assert mutated is not None
+    assert mutated["minute_ranges"] == two
+    assert mutated["limit"] == 100
+
+    ok, _, mutated, _ = validate_tool_arguments(
+        "run_realtime_report",
+        {"minute_ranges": []},
+        s,
+    )
+    assert ok is True
+    assert mutated is not None
+    assert mutated["minute_ranges"] == []
+    assert mutated["limit"] == 100
+
+    for limit in (0, 101):
+        ok, code, _, message = validate_tool_arguments(
+            "run_realtime_report",
+            {"minute_ranges": one, "limit": limit},
+            s,
+        )
+        assert ok is False, limit
+        assert code == "invalid_request"
+        assert message is not None
+
+
+def test_disabled_realtime_ignores_minute_ranges(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = _settings(monkeypatch, GA4MCP_ENABLE_REALTIME="false")
+    for arguments in (
+        {"minute_ranges": "nope"},
+        {"minute_ranges": [{}, {}, {}]},
+        {"minute_ranges": [1]},
+        {
+            "minute_ranges": [{"name": "last5", "start_minutes_ago": 4, "end_minutes_ago": 0}],
+            "limit": 10**9,
+        },
+    ):
+        ok, code, _, _ = validate_tool_arguments("run_realtime_report", arguments, s)
+        assert ok is False
+        assert code == "tool_disabled"
+
+
 def test_empty_or_missing_date_ranges_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     s = _settings(monkeypatch, GA4MCP_MAX_DATE_RANGE_DAYS="366")
     for arguments in ({"date_ranges": []}, {"date_ranges": None}, {}):

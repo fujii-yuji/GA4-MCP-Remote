@@ -298,13 +298,28 @@ Google アナリティクス 4（GA4）のデータ分析を行うAIエージェ
 
 
 ### `run_realtime_report`
-必須: `property_id`, `dimensions`（文字列配列）, `metrics`（文字列配列）。任意: `dimension_filter`, `metric_filter`, `order_bys`, `limit`, `offset`, `return_property_quota`。`date_ranges` は無い。
+必須: `property_id`, `dimensions`（文字列配列）, `metrics`（文字列配列）。任意: `dimension_filter`, `metric_filter`, `order_bys`, `limit`, `offset`, `return_property_quota`, `minute_ranges`。`date_ranges` は無い。`minute_ranges` は省略する。省略すると API の直近30分になる。空の配列も省略と同じである。ユーザーが分単位の窓を指定したときだけ付け、最大2件。各要素は snake_case（`name`, `start_minutes_ago`, `end_minutes_ago`）。標準プロパティでは `start_minutes_ago` は 29 まで。
 
 
 ```json
 {
-  "property_id": 123456789,
+  "property_id": "123456789",
   "dimensions": ["country", "city"],
   "metrics": ["activeUsers", "eventCount"]
+}
+```
+
+
+窓を指定するときだけ `minute_ranges` を付ける。
+
+
+```json
+{
+  "property_id": "123456789",
+  "dimensions": ["country"],
+  "metrics": ["activeUsers"],
+  "minute_ranges": [
+    {"name": "last5", "start_minutes_ago": 4, "end_minutes_ago": 0}
+  ]
 }
 ```

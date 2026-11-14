@@ -59,6 +59,20 @@ def get_date_ranges_hints():
     """
 
 
+def get_minute_ranges_hints():
+    """Returns hints for the optional realtime ``minute_ranges`` argument."""
+    return """
+      Optional. Omit `minute_ranges` unless the user asked for a custom minute
+      window. Omitting it uses the API default of the last 30 minutes. An
+      empty list is the same as omitting it. At most 2 items. Each item is an
+      object with snake_case keys `name`, `start_minutes_ago`, and
+      `end_minutes_ago`. Example:
+      [{"name": "last5", "start_minutes_ago": 4, "end_minutes_ago": 0}].
+      On a standard property, `start_minutes_ago` can be at most 29. This is
+      not `date_ranges`.
+    """
+
+
 def get_funnel_steps_hints():
     """Returns hints and examples for funnel steps configuration."""
     step_first_open = data_v1alpha.FunnelStep(
