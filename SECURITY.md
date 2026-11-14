@@ -68,6 +68,6 @@ If you deploy this server, also read the [Security Notice](./README.en.md#securi
 
 - Use `GA4MCP_AUTH_MODE=bearer` for any deployment reachable from the internet. The server refuses to start with `GA4MCP_ENV=production` + `GA4MCP_AUTH_MODE=none`.
 - Generate the bearer token with `./scripts/generate-bearer-token.sh` and store it in Secret Manager (or an equivalent) — never in git.
-- Keep `GA4MCP_ALLOWED_PROPERTY_IDS` as small as the integration actually needs.
+- Keep `GA4MCP_ALLOWED_PROPERTY_IDS` as small as the integration actually needs. `get_account_summaries` returns only those properties (and omits accounts that have none left), unless `GA4MCP_ALLOW_ALL_PROPERTIES=true`.
 - Set `GA4MCP_ALLOWED_HOSTS` in production for DNS-rebinding protection.
 - Issue per-tenant bearer tokens — separate Cloud Run services, or at minimum separate property allowlists — when stronger isolation is required. A single shared token is equivalent to giving every holder direct access to every property in the allowlist.

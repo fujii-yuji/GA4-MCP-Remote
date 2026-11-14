@@ -16,25 +16,34 @@
 
 from typing import Any, Dict, List
 
+from ga4_remote_mcp.config.settings import get_settings
 from ga4_remote_mcp.ga.tools.utils import (
     construct_property_rn,
     create_admin_api_client,
     create_admin_alpha_api_client,
     proto_to_dict,
 )
+from ga4_remote_mcp.policy.allowlist import filter_account_summaries
 from google.analytics import admin_v1beta, admin_v1alpha
 
 
 async def get_account_summaries() -> List[Dict[str, Any]]:
-    """Retrieves information about the user's Google Analytics accounts and properties."""
+    """Retrieves accounts and properties this server is allowed to return.
 
-    # Uses an async list comprehension so the pager returned by
-    # list_account_summaries retrieves all pages.
+    When ``GA4MCP_ALLOW_ALL_PROPERTIES`` is not true, only properties in
+    ``GA4MCP_ALLOWED_PROPERTY_IDS`` are included. Accounts with no remaining
+    properties are omitted. An empty allowlist returns an empty list without
+    calling the Admin API. ``GA4MCP_ALLOW_ALL_PROPERTIES=true`` returns the
+    Admin API account summaries unchanged.
+    """
+    settings = get_settings()
+    if not settings.allow_all_properties and not settings.parsed_allowed_property_ids():
+        return []
+
+    # The pager yields each AccountSummary. It does not yield response pages.
     summary_pager = await create_admin_api_client().list_account_summaries()
-    all_pages = [
-        proto_to_dict(summary_page) async for summary_page in summary_pager
-    ]
-    return all_pages
+    summaries = [proto_to_dict(summary) async for summary in summary_pager]
+    return filter_account_summaries(summaries, settings)
 
 
 async def list_google_ads_links(property_id: str) -> List[Dict[str, Any]]:
