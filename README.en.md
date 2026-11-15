@@ -110,17 +110,35 @@ Node names and settings may change over time — check the latest information.
 1. Set up Credentials with Bearer and enter the token.
 2. Set up Credentials for the AI API connection.
 3. Connect MCP Client and an AI model (Chat Model) to an AI Agent node and place them in the workflow.
-4. Configure MCP Client with Credentials from step 1, and enter the Server URL from your admin.
+4. Configure MCP Client with Credentials from step 1, and enter the Server URL from your admin. Set Server Transport to **HTTP Streamable**. That mode sends a request and receives the result on each call.
 5. Configure the AI model (Chat Model) with Credentials from step 2.
 6. Set up user prompt and system prompt on the AI Agent node.
    System prompt example: [docs/dify-system-prompt-ga4-mcp-tools.md](./docs/dify-system-prompt-ga4-mcp-tools.md)
 7. Configure other nodes as needed (e.g., receiving input from Slack) and test.
 
-### Do not keep the connection open
+### Which workflows to leave Active
 
-- Set Server Transport to **HTTP Streamable**. This server does not send server-to-client SSE. `GET /mcp` returns `405 Method Not Allowed` immediately.
-- While a workflow stays Active, n8n may issue `GET /mcp` even when the workflow is not running. Deactivate it when you are not using it. After the 405, n8n may retry GET at a short interval. The server does not hold that connection.
-- On Cloud Run, raising the request timeout does not reduce the cost of an always-on connection. This server does not hold GET; it returns 405 immediately. What remains is n8n retrying GET while the workflow stays Active.
+Leave Active on for workflows you want to run. Triggers such as Slack messages and scheduled times do not fire while Active is off.
+
+While Active is on, the MCP Client keeps asking the server to wait for a later message, even when that workflow is not running. This server does not accept that wait. It returns HTTP 405 at once and closes the connection. 405 means this way of sending is not accepted. n8n may repeat the same request at a short interval, and the log shows an error. The response body may mention a server-sent event stream. That means this server does not keep a connection open to push messages to the client.
+
+The problem here is not a failed GA4 call. A tool call is a separate request, sent when n8n needs it, and it succeeds when the result comes back. A 405 in the log means the server declined the wait. If GA4 results are coming back, the fetch did not fail.
+
+n8n plus a remote MCP server has a separate, common problem. With a workflow left Active, the server can stay busy handling a request even when nobody is running the workflow. If the waiting connection stays open, the server keeps working until that request ends. Where you pay for the time a request is being handled, that time is billed. This is not limited to Cloud Run. The same thing happens wherever the process keeps running for as long as the connection stays open.
+
+The connection usually ends at the request time limit configured on the server. In this repo's Cloud Run deploy example, that limit is 300 seconds. When n8n sends the request again as soon as it closes, the server is busy until the next limit. It does not go idle.
+
+This server does not open that wait. It returns 405 and closes the connection at once. While this code is what is running, one request is not held until the time limit. n8n can still send the request again. An older build still leaves the connection open. Leaving Active on is not, by itself, proof that the problem is gone. Check the following.
+
+### Check that the server is not staying busy
+
+Look after you turn a workflow on, during a stretch when it is not calling GA4. If you can see the server, look yourself. If you cannot, ask the person who runs it.
+
+- Request duration. If requests end at once, the wait is being closed. If they repeat near the time limit (300 seconds in the Cloud Run example), the connection is being left open. The server stays busy for that time. Where that time is billed, the bill grows.
+- Do not judge only from whether a process or instance is up. It can stay up while requests still end at once, and that is not a long hold. Long requests that keep coming mean the server is staying busy.
+- Check that unused workflows are not still Active. Each one adds its own requests. Turn Active off for experiments, copies, and old workflows. That workflow then stops sending them.
+
+Leave Active on for workflows you use now. Changing Server Transport, or raising the request time limit, does not stop the repeats, and it does not shorten the time a held connection stays open.
 
 
 ---
@@ -217,7 +235,10 @@ See [SECURITY.md](./SECURITY.md).
 
 - Graceful shutdown: Uvicorn is configured with `timeout_graceful_shutdown=30` seconds. For Kubernetes, set `terminationGracePeriodSeconds` to at least 45–60
 - Logging & personal data: Structured logs may include client IP. Retention, access control, and GDPR compliance are the deployer's responsibility
-- `GET /mcp`: This server is stateless. It does not issue `Mcp-Session-Id` and does not send server-to-client notifications, so it does not open an SSE stream. GET returns `405` immediately and is not held until the request timeout. n8n may retry GET while a workflow is Active; deactivate unused workflows. Raising the Cloud Run request timeout does not reduce the cost of an always-on connection. The remaining cost is those retries
+
+`GET /mcp` is the path a client uses when it wants to wait for a message from the server. This server does not remember the previous request, and it does not issue a session id (`Mcp-Session-Id`). It does not send a message after the result, so it does not open an SSE connection that would keep pushing messages. GET returns HTTP 405 immediately and is not left open until the request time limit. The same applies wherever the process keeps running while a connection stays open, not only on Cloud Run.
+
+While a workflow is Active, n8n sends that same GET again at a short interval after the 405. No server setting stops those repeats. A longer request time limit does not reduce the number of requests, and it does not shorten a request that is left open. An older build that still passes GET to the SDK keeps each idle request open until that limit, so the server does not go idle. In this repo's Cloud Run example, the limit is 300 seconds. What the n8n operator should check is in [Check that the server is not staying busy](#check-that-the-server-is-not-staying-busy).
 
 ---
 
