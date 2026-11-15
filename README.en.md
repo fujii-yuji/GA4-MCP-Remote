@@ -116,29 +116,10 @@ Node names and settings may change over time — check the latest information.
    System prompt example: [docs/dify-system-prompt-ga4-mcp-tools.md](./docs/dify-system-prompt-ga4-mcp-tools.md)
 7. Configure other nodes as needed (e.g., receiving input from Slack) and test.
 
-### Which workflows to leave Active
+### n8n workflows and a remote MCP
 
-Leave Active on for workflows you want to run. Triggers such as Slack messages and scheduled times do not fire while Active is off.
-
-While Active is on, the MCP Client keeps asking the server to wait for a later message, even when that workflow is not running. This server does not accept that wait. It returns HTTP 405 at once and closes the connection. 405 means this way of sending is not accepted. n8n may repeat the same request at a short interval, and the log shows an error. The response body may mention a server-sent event stream. That means this server does not keep a connection open to push messages to the client.
-
-The problem here is not a failed GA4 call. A tool call is a separate request, sent when n8n needs it, and it succeeds when the result comes back. A 405 in the log means the server declined the wait. If GA4 results are coming back, the fetch did not fail.
-
-n8n plus a remote MCP server has a separate, common problem. With a workflow left Active, the server can stay busy handling a request even when nobody is running the workflow. If the waiting connection stays open, the server keeps working until that request ends. Where you pay for the time a request is being handled, that time is billed. This is not limited to Cloud Run. The same thing happens wherever the process keeps running for as long as the connection stays open.
-
-The connection usually ends at the request time limit configured on the server. In this repo's Cloud Run deploy example, that limit is 300 seconds. When n8n sends the request again as soon as it closes, the server is busy until the next limit. It does not go idle.
-
-This server does not open that wait. It returns 405 and closes the connection at once. While this code is what is running, one request is not held until the time limit. n8n can still send the request again. An older build still leaves the connection open. Leaving Active on is not, by itself, proof that the problem is gone. Check the following.
-
-### Check that the server is not staying busy
-
-Look after you turn a workflow on, during a stretch when it is not calling GA4. If you can see the server, look yourself. If you cannot, ask the person who runs it.
-
-- Request duration. If requests end at once, the wait is being closed. If they repeat near the time limit (300 seconds in the Cloud Run example), the connection is being left open. The server stays busy for that time. Where that time is billed, the bill grows.
-- Do not judge only from whether a process or instance is up. It can stay up while requests still end at once, and that is not a long hold. Long requests that keep coming mean the server is staying busy.
-- Check that unused workflows are not still Active. Each one adds its own requests. Turn Active off for experiments, copies, and old workflows. That workflow then stops sending them.
-
-Leave Active on for workflows you use now. Changing Server Transport, or raising the request time limit, does not stop the repeats, and it does not shorten the time a held connection stays open.
+With n8n, the server can stay busy handling a request even when nobody is running a workflow.
+This MCP returns 405 and closes the connection. After you enable a workflow, check that it is not still running while GA4 is not being called (for example, n8n's requests keep the server that hosts this MCP running).
 
 
 ---
@@ -238,7 +219,7 @@ See [SECURITY.md](./SECURITY.md).
 
 `GET /mcp` is the path a client uses when it wants to wait for a message from the server. This server does not remember the previous request, and it does not issue a session id (`Mcp-Session-Id`). It does not send a message after the result, so it does not open an SSE connection that would keep pushing messages. GET returns HTTP 405 immediately and is not left open until the request time limit. The same applies wherever the process keeps running while a connection stays open, not only on Cloud Run.
 
-While a workflow is Active, n8n sends that same GET again at a short interval after the 405. No server setting stops those repeats. A longer request time limit does not reduce the number of requests, and it does not shorten a request that is left open. An older build that still passes GET to the SDK keeps each idle request open until that limit, so the server does not go idle. In this repo's Cloud Run example, the limit is 300 seconds. What the n8n operator should check is in [Check that the server is not staying busy](#check-that-the-server-is-not-staying-busy).
+Some automation tools (such as n8n) keep sending GET while a workflow is enabled. Even when nothing is running, a request can stay open until the time limit, and the server may not stop. Settings on the MCP side cannot stop this repeat, so after you start using it, check that the server is running as it should.
 
 ---
 
