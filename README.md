@@ -28,6 +28,10 @@ GA4 のデータを使った AI チャットボットや自動レポートを、
 
 > stdio（標準入出力）での接続には対応していません。HTTP 接続専用です。
 
+読み取りツールの基準は、公式 [1.1.0](https://github.com/googleanalytics/google-analytics-mcp/releases/tag/1.1.0)（2026-11-06）です。2026-11-14 に、その読み取り側へ合わせました。同じ版にある書き込みツール、`run_conversions_report`、公式の OAuth は含めていません。
+
+2026-11-14 から 15 日の変更（追加したツール、許可リスト、日付と行数の上限、`GET /mcp` の 405）は [更新履歴](./CHANGELOG.md) に書いてあります。
+
 
 ---
 
@@ -210,6 +214,7 @@ docker run --rm -p 8080:8080 \
 - ライセンス: Apache License 2.0（[LICENSE](./LICENSE)）。Google 公式 [google-analytics-mcp](https://github.com/googleanalytics/google-analytics-mcp) 由来部分は [NOTICE](./NOTICE)
 - Cloud Run デプロイ: [docs/deploy-cloud-run.md](./docs/deploy-cloud-run.md) / [scripts/deploy-cloud-run.sh](./scripts/deploy-cloud-run.sh)
 - ローカル開発: Python 3.10+。`pip install -e ".[dev]"` で依存をインストール、`pytest` / `ruff` で検証（`pyproject.toml` 参照）
+- 公式の追従版と直近の変更: [CHANGELOG.md](./CHANGELOG.md)。読み取りの基準は公式 1.1.0（2026-11-06）。このリポジトリのパッケージ版とは別です
 
 ### 運用メモ
 
