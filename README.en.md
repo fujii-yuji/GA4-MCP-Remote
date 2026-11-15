@@ -28,6 +28,10 @@ Build AI chatbots and automated reports from your GA4 data, using tools like Dif
 
 > stdio (standard I/O) connections are not supported. This server is HTTP-only.
 
+Read-only tools follow the official [1.1.0](https://github.com/googleanalytics/google-analytics-mcp/releases/tag/1.1.0) release (2026-11-06). This server was aligned with that read-only surface on 2026-11-14. Write tools, `run_conversions_report`, and the official OAuth transport from that release are not included.
+
+Changes from 2026-11-14 and 15 (added tools, the property allowlist, date and row caps, and `GET /mcp` returning 405) are in the [changelog](./CHANGELOG.md).
+
 
 ---
 
@@ -211,6 +215,7 @@ See [SECURITY.md](./SECURITY.md).
 - License: Apache License 2.0 ([LICENSE](./LICENSE)). Code derived from [google-analytics-mcp](https://github.com/googleanalytics/google-analytics-mcp) is noted in [NOTICE](./NOTICE)
 - Cloud Run deployment: [docs/deploy-cloud-run.md](./docs/deploy-cloud-run.md) / [scripts/deploy-cloud-run.sh](./scripts/deploy-cloud-run.sh)
 - Local development: Python 3.10+. `pip install -e ".[dev]"`, then use `pytest` / `ruff` (see `pyproject.toml`)
+- Official baseline and recent changes: [CHANGELOG.md](./CHANGELOG.md). Read-only tools follow official 1.1.0 (2026-11-06). That is not this repository's package version
 
 ### Operations Notes
 
